@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { normalizeAddress } from "@/utils/utils";
 
 const CHAIN_TO_ID: Record<string, string> = {
   eth: "1",
@@ -189,22 +190,20 @@ async function resolveFunctionName(functionSelector: string) {
   return payload.results?.[0]?.text_signature ?? null;
 }
 
-function normalizeAddress(address: string | null | undefined) {
-  if (!address) return null;
-  return address.toLowerCase();
-}
-
 async function resolveContractMetadata(
   chainId: string,
   apiKey: string,
   address: string
 ): Promise<{ address: string; contractName: string | null; verified: boolean } | null> {
   try {
+    const normalizedAddress = normalizeAddress(address);
+    if (!normalizedAddress) return null;
+
     const result = await fetchEtherscanContract<ContractSourceItem[]>(
       chainId,
       apiKey,
       "getsourcecode",
-      { address }
+      { address: normalizedAddress }
     );
 
     const first = result?.[0];
@@ -214,7 +213,7 @@ async function resolveContractMetadata(
     const sourceCode = first.SourceCode?.trim() ?? "";
 
     return {
-      address,
+      address: normalizedAddress,
       contractName,
       verified: sourceCode.length > 0,
     };
@@ -303,7 +302,7 @@ export async function GET(
     const addressSet = new Set<string>();
 
     const maybeAddAddress = (value: unknown) => {
-      const normalized = normalizeAddress(typeof value === "string" ? value : null);
+      const normalized = normalizeAddress(typeof value === "string" ? value : undefined);
       if (normalized) addressSet.add(normalized);
     };
 

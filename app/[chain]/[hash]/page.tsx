@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
+import TxReceiptCard, { type TxReceiptData } from "@/components/tx-receipt-card";
 
 type PageProps = {
   params: Promise<{
@@ -10,12 +11,12 @@ type PageProps = {
 
 type TxApiResponse = {
   error?: string;
-  external?: unknown;
+  external?: TxReceiptData["external"];
   erc20Transfers?: {
     total?: number;
-    transfers?: unknown[];
+    transfers?: TxReceiptData["erc20Transfers"]["transfers"];
   };
-  addressBook?: Record<string, unknown>;
+  addressBook?: TxReceiptData["addressBook"];
   [key: string]: unknown;
 };
 
@@ -26,21 +27,83 @@ const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 
 function LoadingCard() {
   return (
-    <section className="tx-card">
-      <p className="tx-text-muted">Loading transaction details...</p>
-      <div className="tx-skeleton-group">
-        <div className="tx-skeleton tx-skeleton-short" />
-        <div className="tx-skeleton tx-skeleton-full" />
-        <div className="tx-skeleton tx-skeleton-medium" />
-      </div>
+    <section className="receipt-shell">
+      <article className="receipt-loading-card">
+        <header className="receipt-topbar">
+          <div className="receipt-skeleton receipt-skeleton-badge" />
+          <div className="receipt-skeleton receipt-skeleton-share" />
+        </header>
+
+        <section className="receipt-summary-card">
+          <div className="receipt-skeleton receipt-skeleton-price" />
+          <div className="receipt-skeleton receipt-skeleton-summary-line" />
+          <div className="receipt-skeleton receipt-skeleton-summary-sub" />
+          <hr className="receipt-divider" />
+          <div className="receipt-skeleton receipt-skeleton-note" />
+        </section>
+
+        <section className="receipt-flow">
+          <div className="receipt-profile-card">
+            <div className="receipt-skeleton receipt-skeleton-profile-title" />
+            <div className="receipt-profile-row">
+              <div className="receipt-skeleton receipt-skeleton-avatar" />
+              <div className="receipt-profile-content">
+                <div className="receipt-skeleton receipt-skeleton-profile-line-lg" />
+                <div className="receipt-skeleton receipt-skeleton-profile-line-sm" />
+              </div>
+              <div className="receipt-skeleton receipt-skeleton-copy" />
+            </div>
+          </div>
+
+          <div className="receipt-flow-arrow" aria-hidden>
+            ↓
+          </div>
+
+          <div className="receipt-profile-card">
+            <div className="receipt-skeleton receipt-skeleton-profile-title" />
+            <div className="receipt-profile-row">
+              <div className="receipt-skeleton receipt-skeleton-avatar" />
+              <div className="receipt-profile-content">
+                <div className="receipt-skeleton receipt-skeleton-profile-line-lg" />
+                <div className="receipt-skeleton receipt-skeleton-profile-line-sm" />
+              </div>
+              <div className="receipt-skeleton receipt-skeleton-copy" />
+            </div>
+          </div>
+        </section>
+
+        <footer className="receipt-footer">
+          <ul className="receipt-detail-list">
+            <li className="receipt-detail-row">
+              <div className="receipt-skeleton receipt-skeleton-detail-label" />
+              <div className="receipt-skeleton receipt-skeleton-detail-value" />
+            </li>
+            <li className="receipt-detail-row">
+              <div className="receipt-skeleton receipt-skeleton-detail-label" />
+              <div className="receipt-skeleton receipt-skeleton-detail-value" />
+            </li>
+            <li className="receipt-detail-row">
+              <div className="receipt-skeleton receipt-skeleton-detail-label" />
+              <div className="receipt-skeleton receipt-skeleton-detail-value" />
+            </li>
+            <li className="receipt-detail-row">
+              <div className="receipt-skeleton receipt-skeleton-detail-label" />
+              <div className="receipt-skeleton receipt-skeleton-detail-value-long" />
+            </li>
+          </ul>
+          <div className="receipt-skeleton receipt-skeleton-explorer" />
+        </footer>
+      </article>
     </section>
   );
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <section className="tx-card">
-      <p className="tx-error-text">{message}</p>
+    <section className="receipt-shell">
+      <div className="receipt-loading-card">
+        <p className="receipt-error-text">{message}</p>
+      </div>
     </section>
   );
 }
@@ -79,27 +142,18 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
   }
 
   return (
-    <section className="tx-card">
-      <pre className="tx-json">
-        {JSON.stringify(data.external, null, 2)}
-      </pre>
-
-      <details className="tx-details">
-        <summary className="tx-details-summary">
-          ERC-20 transfers ({data.erc20Transfers?.total ?? 0})
-        </summary>
-        <pre className="tx-json tx-internal-json">
-          {JSON.stringify(
-            {
-              transfers: data.erc20Transfers?.transfers ?? [],
-              addressBook: data.addressBook ?? {},
-            },
-            null,
-            2
-          )}
-        </pre>
-      </details>
-    </section>
+    <TxReceiptCard
+      chain={chain}
+      hash={hash}
+      data={{
+        external: data.external,
+        erc20Transfers: {
+          total: data.erc20Transfers?.total ?? 0,
+          transfers: data.erc20Transfers?.transfers ?? [],
+        },
+        addressBook: data.addressBook ?? {},
+      }}
+    />
   );
 }
 
@@ -107,8 +161,8 @@ export default async function TxPage({ params }: PageProps) {
   const { chain, hash } = await params;
 
   return (
-    <main className="tx-page-center">
-      <div className="tx-page-card-wrap">
+    <main className="receipt-page">
+      <div className="receipt-page-wrap">
         <Suspense fallback={<LoadingCard />}>
           <TxContent chain={chain} hash={hash} />
         </Suspense>
