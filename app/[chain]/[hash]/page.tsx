@@ -11,12 +11,20 @@ type PageProps = {
 
 type TxApiResponse = {
   error?: string;
-  external?: TxReceiptData["external"];
+  type?: TxReceiptData["type"];
+  txStatus?: TxReceiptData["txStatus"];
+  functionName?: TxReceiptData["functionName"];
+  functionSelector?: TxReceiptData["functionSelector"];
+  contractAddress?: TxReceiptData["contractAddress"];
+  transaction?: TxReceiptData["transaction"];
+  receipt?: TxReceiptData["receipt"];
+  block?: TxReceiptData["block"];
+  from?: TxReceiptData["from"];
+  to?: TxReceiptData["to"];
   erc20Transfers?: {
     total?: number;
     transfers?: TxReceiptData["erc20Transfers"]["transfers"];
   };
-  addressBook?: TxReceiptData["addressBook"];
   [key: string]: unknown;
 };
 
@@ -137,8 +145,8 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
     return <ErrorState message={data?.error ?? "Empty response from upstream API."} />;
   }
 
-  if (!data.external) {
-    return <ErrorState message="Missing external transaction payload." />;
+  if (!data.transaction) {
+    return <ErrorState message="Missing transaction payload." />;
   }
 
   return (
@@ -146,12 +154,20 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
       chain={chain}
       hash={hash}
       data={{
-        external: data.external,
+        type: data.type,
+        txStatus: data.txStatus,
+        functionName: data.functionName,
+        functionSelector: data.functionSelector,
+        contractAddress: data.contractAddress,
+        transaction: data.transaction,
+        receipt: data.receipt,
+        block: data.block,
+        from: data.from,
+        to: data.to,
         erc20Transfers: {
           total: data.erc20Transfers?.total ?? 0,
           transfers: data.erc20Transfers?.transfers ?? [],
         },
-        addressBook: data.addressBook ?? {},
       }}
     />
   );

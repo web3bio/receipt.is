@@ -14,11 +14,21 @@ export function normalizeAddress(value?: string) {
   return (value ?? "").toLowerCase();
 }
 
-export function shortenAddress(address?: string, head = 6, tail = 4) {
-  if (!address) return "-";
-  if (address.length <= head + tail + 3) return address;
-  return `${address.slice(0, head)}...${address.slice(-tail)}`;
-}
+export const formatText = (string: string, length?: number): string => {
+  if (!string) return "";
+
+  const len = length ?? 12;
+  if (string.length <= len) return string;
+
+  const chars = len / 2 - 2;
+  const isHex = string.startsWith("0x");
+
+  if (isHex) {
+    return `${string.slice(0, chars + 2)}...${string.slice(-chars)}`;
+  } else {
+    return `${string.slice(0, chars + 1)}...${string.slice(-(chars + 1))}`;
+  }
+};
 
 export function formatTimestamp(timestampHexOrUnix?: string) {
   if (!timestampHexOrUnix) return "-";
@@ -52,4 +62,57 @@ export function getExplorerUrl(chain: string, hash: string) {
   const key = chain.toLowerCase();
   if (key === "sepolia") return `https://sepolia.etherscan.io/tx/${hash}`;
   return `https://etherscan.io/tx/${hash}`;
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as UnknownRecord;
+}
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function firstAddress(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (typeof item === "string" && item.trim()) return item.trim();
+    }
+  }
+  return null;
+}
+
+export type ParsedProfile = {
+  identity: string | null;
+  displayName: string | null;
+  address: string | null;
+  avatar: string | null;
+};
+
+export function parseProfile(payload: unknown): ParsedProfile {
+  const root = asRecord(payload);
+  const profile = asRecord(root?.profile) ?? root;
+
+  const identity = firstString(profile?.identity, root?.identity);
+  const displayName = firstString(
+    profile?.displayName,
+    profile?.name,
+    root?.displayName,
+    root?.name
+  );
+  const address = firstAddress(profile?.address) ?? firstAddress(root?.address);
+  const avatar = firstString(profile?.avatar, profile?.avatarUrl, root?.avatar, root?.avatarUrl);
+
+  return {
+    identity,
+    displayName,
+    address,
+    avatar,
+  };
 }

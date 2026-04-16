@@ -54,16 +54,6 @@ type Erc20TransferItem = {
   confirmations?: string;
 };
 
-type ContractSourceItem = {
-  SourceCode?: string;
-  ABI?: string;
-  ContractName?: string;
-  CompilerVersion?: string;
-  Proxy?: string;
-  Implementation?: string;
-  SwarmSource?: string;
-};
-
 function mapTxStatus(statusHex?: string | null) {
   if (!statusHex) return "pending_or_unknown";
   if (statusHex === "0x1") return "success";
@@ -84,7 +74,7 @@ async function fetchEtherscanProxy<T>(
   chainId: string,
   apiKey: string,
   action: string,
-  params: Record<string, string>
+  params: Record<string, string>,
 ) {
   const search = new URLSearchParams({
     chainid: chainId,
@@ -94,9 +84,12 @@ async function fetchEtherscanProxy<T>(
     ...params,
   });
 
-  const response = await fetch(`https://api.etherscan.io/v2/api?${search.toString()}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `https://api.etherscan.io/v2/api?${search.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   if (!response.ok) {
     throw new Error(`Etherscan proxy request failed: HTTP ${response.status}`);
@@ -115,7 +108,7 @@ async function fetchEtherscanAccount<T>(
   chainId: string,
   apiKey: string,
   action: string,
-  params: Record<string, string>
+  params: Record<string, string>,
 ) {
   const search = new URLSearchParams({
     chainid: chainId,
@@ -125,60 +118,88 @@ async function fetchEtherscanAccount<T>(
     ...params,
   });
 
-  const response = await fetch(`https://api.etherscan.io/v2/api?${search.toString()}`, {
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `https://api.etherscan.io/v2/api?${search.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
 
   if (!response.ok) {
-    throw new Error(`Etherscan account request failed: HTTP ${response.status}`);
+    throw new Error(
+      `Etherscan account request failed: HTTP ${response.status}`,
+    );
   }
 
   const payload = (await response.json()) as EtherscanAccountResponse<T>;
 
   if (payload.status === "0" && payload.message !== "No transactions found") {
-    throw new Error(`Etherscan account error: ${payload.result ?? payload.message ?? "Unknown error"}`);
+    throw new Error(
+      `Etherscan account error: ${payload.result ?? payload.message ?? "Unknown error"}`,
+    );
   }
 
   return payload.result;
 }
 
-async function fetchEtherscanContract<T>(
+function uniqStrings(values: Array<string | null | undefined>) {
+  const set = new Set<string>();
+  for (const value of values) {
+    const normalized = normalizeAddress(value ?? undefined);
+    if (normalized) set.add(normalized);
+  }
+  return Array.from(set);
+}
+
+async function fetchErc20TransfersByTxHash(
   chainId: string,
   apiKey: string,
-  action: string,
-  params: Record<string, string>
+  hash: string,
+  addresses: string[],
 ) {
-  const search = new URLSearchParams({
-    chainid: chainId,
-    module: "contract",
-    action,
-    apikey: apiKey,
-    ...params,
-  });
+  const lowerHash = hash.toLowerCase();
+  const merged: Erc20TransferItem[] = [];
+  const seen = new Set<string>();
 
-  const response = await fetch(`https://api.etherscan.io/v2/api?${search.toString()}`, {
-    cache: "no-store",
-  });
+  for (const address of addresses) {
+    const result = await fetchEtherscanAccount<Erc20TransferItem[] | string>(
+      chainId,
+      apiKey,
+      "tokentx",
+      {
+        address,
+        page: "1",
+        offset: "100",
+        sort: "desc",
+      },
+    );
 
-  if (!response.ok) {
-    throw new Error(`Etherscan contract request failed: HTTP ${response.status}`);
+    const list = Array.isArray(result) ? result : [];
+    for (const item of list) {
+      if ((item.hash ?? "").toLowerCase() !== lowerHash) continue;
+      const key = [
+        item.hash ?? "",
+        item.contractAddress ?? "",
+        item.from ?? "",
+        item.to ?? "",
+        item.value ?? "",
+        item.transactionIndex ?? "",
+      ].join("|");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+    }
   }
 
-  const payload = (await response.json()) as EtherscanAccountResponse<T>;
-
-  if (payload.status === "0") {
-    throw new Error(`Etherscan contract error: ${payload.result ?? payload.message ?? "Unknown error"}`);
-  }
-
-  return payload.result;
+  return merged;
 }
 
 async function resolveFunctionName(functionSelector: string) {
   const response = await fetch(
     `https://www.4byte.directory/api/v1/signatures/?hex_signature=${encodeURIComponent(
-      functionSelector
+      functionSelector,
     )}`,
-    { cache: "no-store" }
+    { cache: "no-store" },
   );
 
   if (!response.ok) return null;
@@ -190,66 +211,65 @@ async function resolveFunctionName(functionSelector: string) {
   return payload.results?.[0]?.text_signature ?? null;
 }
 
-async function resolveContractMetadata(
-  chainId: string,
-  apiKey: string,
-  address: string
-): Promise<{ address: string; contractName: string | null; verified: boolean } | null> {
-  try {
-    const normalizedAddress = normalizeAddress(address);
-    if (!normalizedAddress) return null;
+async function resolveNsProfile(
+  address: string,
+): Promise<Record<string, unknown>> {
+  const normalizedAddress = normalizeAddress(address);
+  if (!normalizedAddress) {
+    return { address: [] };
+  }
 
-    const result = await fetchEtherscanContract<ContractSourceItem[]>(
-      chainId,
-      apiKey,
-      "getsourcecode",
-      { address: normalizedAddress }
+  try {
+    const response = await fetch(
+      `https://api.web3.bio/ns/ens/${encodeURIComponent(normalizedAddress)}`,
     );
 
-    const first = result?.[0];
-    if (!first) return null;
+    if (!response.ok) {
+      return { address: [normalizedAddress] };
+    }
 
-    const contractName = first.ContractName?.trim() ? first.ContractName.trim() : null;
-    const sourceCode = first.SourceCode?.trim() ?? "";
+    const payload = (await response.json()) as Record<string, unknown>;
+    if (!payload || typeof payload !== "object") {
+      return { address: [normalizedAddress] };
+    }
 
-    return {
-      address: normalizedAddress,
-      contractName,
-      verified: sourceCode.length > 0,
-    };
+    return payload;
   } catch {
-    return null;
+    return { address: [normalizedAddress] };
   }
 }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ hash: string }> }
+  { params }: { params: Promise<{ hash: string }> },
 ) {
   try {
     const { hash } = await params;
-    const chain = request.nextUrl.searchParams.get("chain")?.toLowerCase() ?? "eth";
+    const chain =
+      request.nextUrl.searchParams.get("chain")?.toLowerCase() ?? "eth";
     const chainId = CHAIN_TO_ID[chain];
     const apiKey = process.env.ETHERSCAN_API_KEY;
 
     if (!TX_HASH_REGEX.test(hash)) {
       return Response.json(
         { error: "Invalid tx hash. Expected 0x-prefixed 64-byte hash." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!chainId) {
       return Response.json(
-        { error: `Unsupported chain '${chain}'. Supported: eth, ethereum, sepolia.` },
-        { status: 400 }
+        {
+          error: `Unsupported chain '${chain}'. Supported: eth, ethereum, sepolia.`,
+        },
+        { status: 400 },
       );
     }
 
     if (!apiKey) {
       return Response.json(
         { error: "Missing ETHERSCAN_API_KEY in environment variables." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -257,103 +277,109 @@ export async function GET(
       chainId,
       apiKey,
       "eth_getTransactionByHash",
-      { txhash: hash }
+      { txhash: hash },
     );
 
     if (!transaction) {
-      return Response.json({ error: "Transaction not found." }, { status: 404 });
+      return Response.json(
+        { error: "Transaction not found." },
+        { status: 404 },
+      );
     }
 
     const blockNumber = (transaction.blockNumber as string | undefined) ?? null;
 
     const [receipt, block] = await Promise.all([
-      fetchEtherscanProxy<JsonRecord>(chainId, apiKey, "eth_getTransactionReceipt", {
-        txhash: hash,
-      }),
+      fetchEtherscanProxy<JsonRecord>(
+        chainId,
+        apiKey,
+        "eth_getTransactionReceipt",
+        {
+          txhash: hash,
+        },
+      ),
       blockNumber
-        ? fetchEtherscanProxy<JsonRecord>(chainId, apiKey, "eth_getBlockByNumber", {
-            tag: blockNumber,
-            boolean: "false",
-          })
+        ? fetchEtherscanProxy<JsonRecord>(
+            chainId,
+            apiKey,
+            "eth_getBlockByNumber",
+            {
+              tag: blockNumber,
+              boolean: "false",
+            },
+          )
         : Promise.resolve(null),
     ]);
 
     const input = String(transaction.input ?? "0x");
-    const isContractCall = Boolean(transaction.to) && input !== "0x" && input !== "0x0";
+    const isContractCall =
+      Boolean(transaction.to) && input !== "0x" && input !== "0x0";
     const functionSelector = isContractCall ? input.slice(0, 10) : null;
-    const functionName = functionSelector ? await resolveFunctionName(functionSelector) : null;
+    const functionName = functionSelector
+      ? await resolveFunctionName(functionSelector)
+      : null;
     const contractAddress =
       (receipt?.contractAddress as string | null | undefined) ??
       (transaction.to as string | null | undefined) ??
       null;
 
-    const erc20Result = await fetchEtherscanAccount<Erc20TransferItem[] | string>(
-      chainId,
-      apiKey,
-      "tokentx",
-      { txhash: hash }
-    );
-
-    const erc20Transfers = Array.isArray(erc20Result) ? erc20Result : [];
+    const erc20Addresses = uniqStrings([
+      transaction.from as string | undefined,
+      transaction.to as string | undefined,
+      (receipt?.contractAddress as string | undefined) ?? undefined,
+    ]);
+    const erc20Transfers =
+      erc20Addresses.length > 0
+        ? await fetchErc20TransfersByTxHash(
+            chainId,
+            apiKey,
+            hash,
+            erc20Addresses,
+          )
+        : [];
     const externalType = detectExternalTxType(transaction);
     const sanitizedReceipt = receipt
-      ? Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== "logs"))
+      ? Object.fromEntries(
+          Object.entries(receipt).filter(([key]) => key !== "logs"),
+        )
       : null;
-    const addressSet = new Set<string>();
-
-    const maybeAddAddress = (value: unknown) => {
-      const normalized = normalizeAddress(typeof value === "string" ? value : undefined);
-      if (normalized) addressSet.add(normalized);
-    };
-
-    maybeAddAddress(transaction.to);
-    maybeAddAddress(receipt?.contractAddress);
-
-    for (const transfer of erc20Transfers) {
-      maybeAddAddress(transfer.contractAddress);
-      maybeAddAddress(transfer.from);
-      maybeAddAddress(transfer.to);
-    }
-
-    const addressBookEntries = await Promise.all(
-      Array.from(addressSet)
-        .slice(0, 30)
-        .map(async (address) => [address, await resolveContractMetadata(chainId, apiKey, address)] as const)
-    );
-
-    const addressBook = Object.fromEntries(addressBookEntries.filter(([, metadata]) => metadata));
-
+    const fromAddress = (transaction.from as string | undefined) ?? "";
+    const toAddress = (transaction.to as string | undefined) ?? "";
+    const [fromProfile, toProfile] = await Promise.all([
+      resolveNsProfile(fromAddress),
+      toAddress
+        ? resolveNsProfile(toAddress)
+        : Promise.resolve({ address: [] }),
+    ]);
+    console.log(fromProfile, toProfile,'kkk')
     return Response.json({
       chain,
       chainId,
       hash,
-      external: {
-        type: externalType,
-        txStatus: mapTxStatus((receipt?.status as string | undefined) ?? undefined),
-        functionName,
-        functionSelector,
-        contractAddress,
-        transaction,
-        receipt: sanitizedReceipt,
-        block,
-      },
+      type: externalType,
+      txStatus: mapTxStatus(
+        (receipt?.status as string | undefined) ?? undefined,
+      ),
+      functionName,
+      functionSelector,
+      contractAddress,
+      transaction,
+      receipt: sanitizedReceipt,
+      block,
       erc20Transfers: {
         total: erc20Transfers.length,
         transfers: erc20Transfers,
       },
-      addressBook,
-      dataSource: {
-        external: "etherscan proxy",
-        erc20Transfers: "etherscan account/tokentx",
-        addressBook: "etherscan contract/getsourcecode",
-      },
+      from: fromProfile,
+      to: toProfile,
     });
   } catch (error) {
     return Response.json(
       {
-        error: error instanceof Error ? error.message : "Unknown upstream error.",
+        error:
+          error instanceof Error ? error.message : "Unknown upstream error.",
       },
-      { status: 502 }
+      { status: 502 },
     );
   }
 }

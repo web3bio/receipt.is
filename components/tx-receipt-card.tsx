@@ -2,20 +2,18 @@
 
 import {
   formatAmount,
+  formatText,
   formatTimestamp,
   getExplorerUrl,
   getStatusClass,
   getStatusLabel,
-  normalizeAddress,
-  shortenAddress,
+  parseProfile,
 } from "@/utils/utils";
 
 type JsonRecord = Record<string, unknown>;
 
 type AddressBookItem = {
-  address: string;
-  contractName: string | null;
-  verified: boolean;
+  [key: string]: unknown;
 };
 
 type TransferItem = {
@@ -27,21 +25,20 @@ type TransferItem = {
 };
 
 export type TxReceiptData = {
-  external: {
-    type?: string;
-    txStatus?: string;
-    functionName?: string | null;
-    functionSelector?: string | null;
-    contractAddress?: string | null;
-    transaction?: JsonRecord | null;
-    receipt?: JsonRecord | null;
-    block?: JsonRecord | null;
-  };
+  type?: string;
+  txStatus?: string;
+  functionName?: string | null;
+  functionSelector?: string | null;
+  contractAddress?: string | null;
+  transaction?: JsonRecord | null;
+  receipt?: JsonRecord | null;
+  block?: JsonRecord | null;
+  from?: AddressBookItem;
+  to?: AddressBookItem;
   erc20Transfers: {
     total: number;
     transfers: TransferItem[];
   };
-  addressBook: Record<string, AddressBookItem>;
 };
 
 type TxReceiptCardProps = {
@@ -49,12 +46,6 @@ type TxReceiptCardProps = {
   hash: string;
   data: TxReceiptData;
 };
-
-function getAddressMeta(address: string | undefined, addressBook: Record<string, AddressBookItem>) {
-  if (!address) return null;
-  const item = addressBook[normalizeAddress(address)];
-  return item?.contractName ?? null;
-}
 
 function CopyButton({ value }: { value: string }) {
   const onCopy = async () => {
@@ -81,30 +72,43 @@ function ShareButton() {
   );
 }
 
-function Avatar({ label }: { label: string }) {
+function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null }) {
   const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
-  return <div className="receipt-avatar">{text}</div>;
+  return (
+    <div className="receipt-avatar">
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="receipt-avatar-image" src={avatarUrl} alt={label} />
+      ) : (
+        text
+      )}
+    </div>
+  );
 }
 
 function ProfileCard({
   title,
-  address,
-  name,
+  addressLabel,
+  displayLabel,
+  addressValue,
+  avatarUrl,
 }: {
   title: string;
-  address?: string;
-  name?: string | null;
+  addressLabel?: string;
+  displayLabel?: string;
+  addressValue?: string;
+  avatarUrl?: string | null;
 }) {
   return (
     <section className="receipt-profile-card">
       <p className="receipt-profile-title">{title}</p>
       <div className="receipt-profile-row">
-        <Avatar label={address ?? "na"} />
+        <Avatar label={addressLabel ?? "na"} avatarUrl={avatarUrl} />
         <div className="receipt-profile-content">
-          <p className="receipt-profile-name">{name || shortenAddress(address)}</p>
-          <p className="receipt-profile-address">{address || "-"}</p>
+          <p className="receipt-profile-name">{displayLabel || formatText(addressLabel ?? "", 14)}</p>
+          <p className="receipt-profile-address">{addressValue || addressLabel || "-"}</p>
         </div>
-        <CopyButton value={address ?? ""} />
+        <CopyButton value={addressValue ?? addressLabel ?? ""} />
       </div>
     </section>
   );
@@ -120,18 +124,28 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps) {
-  const tx = data.external.transaction ?? {};
-  const block = data.external.block ?? {};
+  const tx = data.transaction ?? {};
+  const block = data.block ?? {};
   const fromAddress = tx.from as string | undefined;
   const toAddress = tx.to as string | undefined;
-  const txStatus = data.external.txStatus;
+  const txStatus = data.txStatus;
   const statusLabel = getStatusLabel(txStatus);
   const firstTransfer = data.erc20Transfers.transfers[0];
   const tokenSymbol = firstTransfer?.tokenSymbol ?? "TOKEN";
   const amount = formatAmount(firstTransfer?.value, firstTransfer?.tokenDecimal);
   const timeText = formatTimestamp((block.timestamp as string | undefined) ?? undefined);
-  const fromName = getAddressMeta(fromAddress, data.addressBook);
-  const toName = getAddressMeta(toAddress, data.addressBook);
+  const fromProfile = parseProfile(data.from);
+  const toProfile = parseProfile(data.to);
+  const fromIdentity = fromProfile.identity || formatText(fromAddress ?? "", 14);
+  const toIdentity = toProfile.identity || formatText(toAddress ?? "", 14);
+  const fromDisplayLabel =
+    fromProfile.displayName && fromIdentity
+      ? `${fromProfile.displayName} (${fromIdentity})`
+      : fromProfile.displayName || fromIdentity;
+  const toDisplayLabel =
+    toProfile.displayName && toIdentity
+      ? `${toProfile.displayName} (${toIdentity})`
+      : toProfile.displayName || toIdentity;
   const blockNumber = (tx.blockNumber as string | undefined) ?? "-";
   const explorerUrl = getExplorerUrl(chain, hash);
 
@@ -146,13 +160,19 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
         <section className="receipt-summary-card">
           <p className="receipt-price">$ --</p>
           <p className="receipt-summary-line receipt-summary-line-main">
-            <span>{shortenAddress(fromAddress)}</span>
+            <span className="receipt-summary-identity">
+              <Avatar label={fromIdentity} avatarUrl={fromProfile.avatar} />
+              {fromIdentity}
+            </span>
             <span className="receipt-summary-token">sent</span>
             <strong>{`${amount} ${tokenSymbol}`}</strong>
             <span className="receipt-summary-token">to</span>
           </p>
           <p className="receipt-summary-line receipt-summary-line-sub">
-            <span>{shortenAddress(toAddress)}</span>
+            <span className="receipt-summary-identity">
+              <Avatar label={toIdentity} avatarUrl={toProfile.avatar} />
+              {toIdentity}
+            </span>
             <span className="receipt-summary-time-inline">{timeText}</span>
           </p>
           <hr className="receipt-divider" />
@@ -160,11 +180,23 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
         </section>
 
         <section className="receipt-flow">
-          <ProfileCard title="FROM" address={fromAddress} name={fromName} />
+          <ProfileCard
+            title="FROM"
+            addressLabel={fromAddress}
+            displayLabel={fromDisplayLabel}
+            addressValue={fromProfile.address ?? undefined}
+            avatarUrl={fromProfile.avatar}
+          />
           <div className="receipt-flow-arrow" aria-hidden>
             ↓
           </div>
-          <ProfileCard title="TO" address={toAddress} name={toName} />
+          <ProfileCard
+            title="TO"
+            addressLabel={toAddress}
+            displayLabel={toDisplayLabel}
+            addressValue={toProfile.address ?? undefined}
+            avatarUrl={toProfile.avatar}
+          />
         </section>
 
         <footer className="receipt-footer">
