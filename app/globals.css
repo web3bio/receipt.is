@@ -321,7 +321,7 @@ body {
   height: 44px;
   border-radius: 12px;
   background: #e5e7eb;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;

@@ -351,7 +351,6 @@ export async function GET(
         ? resolveNsProfile(toAddress)
         : Promise.resolve({ address: [] }),
     ]);
-    console.log(fromProfile, toProfile,'kkk')
     return Response.json({
       chain,
       chainId,

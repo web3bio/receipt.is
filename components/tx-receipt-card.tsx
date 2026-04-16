@@ -47,6 +47,19 @@ type TxReceiptCardProps = {
   data: TxReceiptData;
 };
 
+type ProfileView = {
+  identityText: string;
+  displayLabel: string;
+  addressValue?: string;
+  avatarUrl?: string | null;
+};
+
+function formatAddressDisplay(value?: string) {
+  if (!value) return "-";
+  const isAddress = /^0x[a-fA-F0-9]+$/.test(value);
+  return isAddress ? formatText(value, 14) : value;
+}
+
 function CopyButton({ value }: { value: string }) {
   const onCopy = async () => {
     if (!value) return;
@@ -75,14 +88,14 @@ function ShareButton() {
 function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null }) {
   const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
   return (
-    <div className="receipt-avatar">
+    <span className="receipt-avatar" aria-hidden>
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="receipt-avatar-image" src={avatarUrl} alt={label} />
       ) : (
         text
       )}
-    </div>
+    </span>
   );
 }
 
@@ -99,6 +112,8 @@ function ProfileCard({
   addressValue?: string;
   avatarUrl?: string | null;
 }) {
+  const addressDisplay = formatAddressDisplay(addressValue || addressLabel);
+
   return (
     <section className="receipt-profile-card">
       <p className="receipt-profile-title">{title}</p>
@@ -106,7 +121,7 @@ function ProfileCard({
         <Avatar label={addressLabel ?? "na"} avatarUrl={avatarUrl} />
         <div className="receipt-profile-content">
           <p className="receipt-profile-name">{displayLabel || formatText(addressLabel ?? "", 14)}</p>
-          <p className="receipt-profile-address">{addressValue || addressLabel || "-"}</p>
+          <p className="receipt-profile-address">{addressDisplay}</p>
         </div>
         <CopyButton value={addressValue ?? addressLabel ?? ""} />
       </div>
@@ -123,6 +138,26 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function buildProfileView(rawProfile: unknown, fallbackAddress?: string): ProfileView {
+  const profile = parseProfile(rawProfile);
+  const identityText = formatAddressDisplay(profile.identity ?? fallbackAddress ?? "");
+  const fallbackAvatar =
+    !profile.avatar && profile.identity
+      ? `https://api.web3.bio/avatar/${encodeURIComponent(profile.identity)}`
+      : null;
+  const displayLabel =
+    profile.displayName && identityText
+      ? `${profile.displayName} (${identityText})`
+      : profile.displayName || identityText;
+
+  return {
+    identityText,
+    displayLabel,
+    addressValue: profile.address ?? undefined,
+    avatarUrl: profile.avatar ?? fallbackAvatar,
+  };
+}
+
 export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps) {
   const tx = data.transaction ?? {};
   const block = data.block ?? {};
@@ -134,20 +169,11 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
   const tokenSymbol = firstTransfer?.tokenSymbol ?? "TOKEN";
   const amount = formatAmount(firstTransfer?.value, firstTransfer?.tokenDecimal);
   const timeText = formatTimestamp((block.timestamp as string | undefined) ?? undefined);
-  const fromProfile = parseProfile(data.from);
-  const toProfile = parseProfile(data.to);
-  const fromIdentity = fromProfile.identity || formatText(fromAddress ?? "", 14);
-  const toIdentity = toProfile.identity || formatText(toAddress ?? "", 14);
-  const fromDisplayLabel =
-    fromProfile.displayName && fromIdentity
-      ? `${fromProfile.displayName} (${fromIdentity})`
-      : fromProfile.displayName || fromIdentity;
-  const toDisplayLabel =
-    toProfile.displayName && toIdentity
-      ? `${toProfile.displayName} (${toIdentity})`
-      : toProfile.displayName || toIdentity;
+  const fromProfileView = buildProfileView(data.from, fromAddress);
+  const toProfileView = buildProfileView(data.to, toAddress);
   const blockNumber = (tx.blockNumber as string | undefined) ?? "-";
   const explorerUrl = getExplorerUrl(chain, hash);
+  const txHashDisplay = formatText(hash, 16);
 
   return (
     <section className="receipt-shell">
@@ -161,8 +187,8 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           <p className="receipt-price">$ --</p>
           <p className="receipt-summary-line receipt-summary-line-main">
             <span className="receipt-summary-identity">
-              <Avatar label={fromIdentity} avatarUrl={fromProfile.avatar} />
-              {fromIdentity}
+              <Avatar label={fromProfileView.identityText} avatarUrl={fromProfileView.avatarUrl} />
+              {fromProfileView.identityText}
             </span>
             <span className="receipt-summary-token">sent</span>
             <strong>{`${amount} ${tokenSymbol}`}</strong>
@@ -170,8 +196,8 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           </p>
           <p className="receipt-summary-line receipt-summary-line-sub">
             <span className="receipt-summary-identity">
-              <Avatar label={toIdentity} avatarUrl={toProfile.avatar} />
-              {toIdentity}
+              <Avatar label={toProfileView.identityText} avatarUrl={toProfileView.avatarUrl} />
+              {toProfileView.identityText}
             </span>
             <span className="receipt-summary-time-inline">{timeText}</span>
           </p>
@@ -183,9 +209,9 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           <ProfileCard
             title="FROM"
             addressLabel={fromAddress}
-            displayLabel={fromDisplayLabel}
-            addressValue={fromProfile.address ?? undefined}
-            avatarUrl={fromProfile.avatar}
+            displayLabel={fromProfileView.displayLabel}
+            addressValue={fromProfileView.addressValue}
+            avatarUrl={fromProfileView.avatarUrl}
           />
           <div className="receipt-flow-arrow" aria-hidden>
             ↓
@@ -193,9 +219,9 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           <ProfileCard
             title="TO"
             addressLabel={toAddress}
-            displayLabel={toDisplayLabel}
-            addressValue={toProfile.address ?? undefined}
-            avatarUrl={toProfile.avatar}
+            displayLabel={toProfileView.displayLabel}
+            addressValue={toProfileView.addressValue}
+            avatarUrl={toProfileView.avatarUrl}
           />
         </section>
 
@@ -204,7 +230,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
             <DetailRow label="Time" value={timeText} />
             <DetailRow label="Network" value={chain} />
             <DetailRow label="BlockNumber" value={blockNumber} />
-            <DetailRow label="TransactionHash" value={hash} />
+            <DetailRow label="TransactionHash" value={txHashDisplay} />
           </ul>
           <a className="receipt-explorer-btn" href={explorerUrl} target="_blank" rel="noreferrer">
             Explorer
