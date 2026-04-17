@@ -60,7 +60,10 @@ export function formatAmount(value?: string, decimals?: string) {
 
 export function getExplorerUrl(chain: string, hash: string) {
   const key = chain.toLowerCase();
-  if (key === "sepolia") return `https://sepolia.etherscan.io/tx/${hash}`;
+  if (key === "base") return `https://basescan.org/tx/${hash}`;
+  if (key === "bsc") return `https://bscscan.com/tx/${hash}`;
+  if (key === "arb") return `https://arbiscan.io/tx/${hash}`;
+  if (key === "op") return `https://optimistic.etherscan.io/tx/${hash}`;
   return `https://etherscan.io/tx/${hash}`;
 }
 

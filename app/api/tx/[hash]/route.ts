@@ -1,11 +1,6 @@
 import { NextRequest } from "next/server";
+import { getChainId, normalizeChain, SUPPORTED_CHAINS } from "@/utils/network";
 import { normalizeAddress } from "@/utils/utils";
-
-const CHAIN_TO_ID: Record<string, string> = {
-  eth: "1",
-  ethereum: "1",
-  sepolia: "11155111",
-};
 
 const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 
@@ -245,9 +240,8 @@ export async function GET(
 ) {
   try {
     const { hash } = await params;
-    const chain =
-      request.nextUrl.searchParams.get("chain")?.toLowerCase() ?? "eth";
-    const chainId = CHAIN_TO_ID[chain];
+    const chain = normalizeChain(request.nextUrl.searchParams.get("chain"));
+    const chainId = getChainId(chain);
     const apiKey = process.env.ETHERSCAN_API_KEY;
 
     if (!TX_HASH_REGEX.test(hash)) {
@@ -260,7 +254,7 @@ export async function GET(
     if (!chainId) {
       return Response.json(
         {
-          error: `Unsupported chain '${chain}'. Supported: eth, ethereum, sepolia.`,
+          error: `Unsupported chain '${chain}'. Supported: ${SUPPORTED_CHAINS.join(", ")}.`,
         },
         { status: 400 },
       );

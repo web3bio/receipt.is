@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import TxReceiptCard, { type TxReceiptData } from "@/components/tx-receipt-card";
+import {
+  normalizeChain,
+  SUPPORTED_CHAINS,
+  SUPPORTED_CHAIN_SET,
+} from "@/utils/network";
 
 type PageProps = {
   params: Promise<{
@@ -117,6 +122,16 @@ function ErrorState({ message }: { message: string }) {
 }
 
 async function TxContent({ chain, hash }: { chain: string; hash: string }) {
+  const chainKey = normalizeChain(chain);
+
+  if (!SUPPORTED_CHAIN_SET.has(chainKey)) {
+    return (
+      <ErrorState
+        message={`Unsupported chain '${chain}'. Supported: ${SUPPORTED_CHAINS.join(", ")}.`}
+      />
+    );
+  }
+
   if (!TX_HASH_REGEX.test(hash)) {
     return <ErrorState message="Invalid tx hash. Expected 0x-prefixed 64-byte hash." />;
   }
@@ -130,7 +145,7 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
 
   const protocol = headerList.get("x-forwarded-proto") ?? "http";
   const origin = `${protocol}://${host}`;
-  const endpoint = `${origin}/api/tx/${encodeURIComponent(hash)}?chain=${encodeURIComponent(chain)}`;
+  const endpoint = `${origin}/api/tx/${encodeURIComponent(hash)}?chain=${encodeURIComponent(chainKey)}`;
   const response = await fetch(endpoint, { cache: "no-store" });
 
   if (!response.ok) {
@@ -151,7 +166,7 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
 
   return (
     <TxReceiptCard
-      chain={chain}
+      chain={chainKey}
       hash={hash}
       data={{
         type: data.type,
