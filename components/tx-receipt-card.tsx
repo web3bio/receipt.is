@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   formatAmount,
   formatText,
@@ -9,6 +10,8 @@ import {
   getStatusLabel,
   parseProfile,
 } from "@/utils/utils";
+import AddressCard from "@/components/address-card";
+import OverviewCard from "@/components/overview-card";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -60,19 +63,6 @@ function formatAddressDisplay(value?: string) {
   return isAddress ? formatText(value, 14) : value;
 }
 
-function CopyButton({ value }: { value: string }) {
-  const onCopy = async () => {
-    if (!value) return;
-    await navigator.clipboard.writeText(value);
-  };
-
-  return (
-    <button type="button" className="receipt-copy-btn" onClick={onCopy}>
-      Copy
-    </button>
-  );
-}
-
 function ShareButton() {
   const onShare = async () => {
     await navigator.clipboard.writeText(window.location.href);
@@ -82,50 +72,6 @@ function ShareButton() {
     <button type="button" className="receipt-share-btn" onClick={onShare}>
       Share
     </button>
-  );
-}
-
-function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null }) {
-  const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
-  return (
-    <span className="receipt-avatar" aria-hidden>
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="receipt-avatar-image" src={avatarUrl} alt={label} />
-      ) : (
-        text
-      )}
-    </span>
-  );
-}
-
-function ProfileCard({
-  title,
-  addressLabel,
-  displayLabel,
-  addressValue,
-  avatarUrl,
-}: {
-  title: string;
-  addressLabel?: string;
-  displayLabel?: string;
-  addressValue?: string;
-  avatarUrl?: string | null;
-}) {
-  const addressDisplay = formatAddressDisplay(addressValue || addressLabel);
-
-  return (
-    <section className="receipt-profile-card">
-      <p className="receipt-profile-title">{title}</p>
-      <div className="receipt-profile-row">
-        <Avatar label={addressLabel ?? "na"} avatarUrl={avatarUrl} />
-        <div className="receipt-profile-content">
-          <p className="receipt-profile-name">{displayLabel || formatText(addressLabel ?? "", 14)}</p>
-          <p className="receipt-profile-address">{addressDisplay}</p>
-        </div>
-        <CopyButton value={addressValue ?? addressLabel ?? ""} />
-      </div>
-    </section>
   );
 }
 
@@ -183,30 +129,18 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           <ShareButton />
         </header>
 
-        <section className="receipt-summary-card">
-          <p className="receipt-price">$ --</p>
-          <p className="receipt-summary-line receipt-summary-line-main">
-            <span className="receipt-summary-identity">
-              <Avatar label={fromProfileView.identityText} avatarUrl={fromProfileView.avatarUrl} />
-              {fromProfileView.identityText}
-            </span>
-            <span className="receipt-summary-token">sent</span>
-            <strong>{`${amount} ${tokenSymbol}`}</strong>
-            <span className="receipt-summary-token">to</span>
-          </p>
-          <p className="receipt-summary-line receipt-summary-line-sub">
-            <span className="receipt-summary-identity">
-              <Avatar label={toProfileView.identityText} avatarUrl={toProfileView.avatarUrl} />
-              {toProfileView.identityText}
-            </span>
-            <span className="receipt-summary-time-inline">{timeText}</span>
-          </p>
-          <hr className="receipt-divider" />
-          <p className="receipt-note">Note from this transaction</p>
-        </section>
+        <OverviewCard
+          amount={amount}
+          tokenSymbol={tokenSymbol}
+          timeText={timeText}
+          fromIdentityText={fromProfileView.identityText}
+          fromAvatarUrl={fromProfileView.avatarUrl}
+          toIdentityText={toProfileView.identityText}
+          toAvatarUrl={toProfileView.avatarUrl}
+        />
 
         <section className="receipt-flow">
-          <ProfileCard
+          <AddressCard
             title="FROM"
             addressLabel={fromAddress}
             displayLabel={fromProfileView.displayLabel}
@@ -214,9 +148,9 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
             avatarUrl={fromProfileView.avatarUrl}
           />
           <div className="receipt-flow-arrow" aria-hidden>
-            ↓
+            <Image src="/icon-arrow.svg" alt="" width={18} height={18} />
           </div>
-          <ProfileCard
+          <AddressCard
             title="TO"
             addressLabel={toAddress}
             displayLabel={toProfileView.displayLabel}
