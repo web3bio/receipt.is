@@ -30,6 +30,8 @@ type TxApiResponse = {
     total?: number;
     transfers?: TxReceiptData["erc20Transfers"]["transfers"];
   };
+  tokenInfo?: TxReceiptData["tokenInfo"];
+  tokenInfoContractAddress?: TxReceiptData["tokenInfoContractAddress"];
   [key: string]: unknown;
 };
 
@@ -183,6 +185,8 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
           total: data.erc20Transfers?.total ?? 0,
           transfers: data.erc20Transfers?.transfers ?? [],
         },
+        tokenInfo: data.tokenInfo ?? null,
+        tokenInfoContractAddress: data.tokenInfoContractAddress ?? null,
       }}
     />
   );

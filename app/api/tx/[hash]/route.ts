@@ -25,6 +25,12 @@ type EtherscanAccountResponse<T> = {
   result?: T;
 };
 
+type EtherscanTokenResponse<T> = {
+  status?: string;
+  message?: string;
+  result?: T;
+};
+
 type Erc20TransferItem = {
   blockNumber?: string;
   timeStamp?: string;
@@ -47,6 +53,16 @@ type Erc20TransferItem = {
   methodId?: string;
   functionName?: string;
   confirmations?: string;
+};
+
+type TokenInfoItem = {
+  contractAddress?: string;
+  tokenName?: string;
+  symbol?: string;
+  divisor?: string;
+  tokenType?: string;
+  tokenPriceUSD?: string;
+  image?: string;
 };
 
 function mapTxStatus(statusHex?: string | null) {
@@ -137,6 +153,42 @@ async function fetchEtherscanAccount<T>(
   return payload.result;
 }
 
+async function fetchEtherscanToken<T>(
+  chainId: string,
+  apiKey: string,
+  action: string,
+  params: Record<string, string>,
+) {
+  const search = new URLSearchParams({
+    chainid: chainId,
+    module: "token",
+    action,
+    apikey: apiKey,
+    ...params,
+  });
+
+  const response = await fetch(
+    `https://api.etherscan.io/v2/api?${search.toString()}`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Etherscan token request failed: HTTP ${response.status}`);
+  }
+
+  const payload = (await response.json()) as EtherscanTokenResponse<T>;
+
+  if (payload.status === "0") {
+    throw new Error(
+      `Etherscan token error: ${payload.result ?? payload.message ?? "Unknown error"}`,
+    );
+  }
+
+  return payload.result;
+}
+
 function uniqStrings(values: Array<string | null | undefined>) {
   const set = new Set<string>();
   for (const value of values) {
@@ -187,6 +239,37 @@ async function fetchErc20TransfersByTxHash(
   }
 
   return merged;
+}
+
+async function resolveTokenInfoFromTransfers(
+  chainId: string,
+  apiKey: string,
+  transfers: Erc20TransferItem[],
+): Promise<{ tokenInfo: TokenInfoItem | null; contractAddress: string | null }> {
+  const firstContract = transfers
+    .map((item) => normalizeAddress(item.contractAddress))
+    .find(Boolean);
+
+  if (!firstContract) {
+    return { tokenInfo: null, contractAddress: null };
+  }
+
+  try {
+    const result = await fetchEtherscanToken<TokenInfoItem[] | TokenInfoItem>(
+      chainId,
+      apiKey,
+      "tokeninfo",
+      { contractaddress: firstContract },
+    );
+    const tokenInfo = Array.isArray(result) ? result[0] : result;
+    if (!tokenInfo || typeof tokenInfo !== "object") {
+      return { tokenInfo: null, contractAddress: firstContract };
+    }
+    return { tokenInfo, contractAddress: firstContract };
+  } catch {
+    // tokeninfo is not guaranteed for every token / plan; degrade gracefully.
+    return { tokenInfo: null, contractAddress: firstContract };
+  }
 }
 
 async function resolveFunctionName(functionSelector: string) {
@@ -331,6 +414,12 @@ export async function GET(
             erc20Addresses,
           )
         : [];
+    const { tokenInfo, contractAddress: tokenInfoContractAddress } =
+      await resolveTokenInfoFromTransfers(
+      chainId,
+      apiKey,
+      erc20Transfers,
+      );
     const externalType = detectExternalTxType(transaction);
     const sanitizedReceipt = receipt
       ? Object.fromEntries(
@@ -363,6 +452,8 @@ export async function GET(
         total: erc20Transfers.length,
         transfers: erc20Transfers,
       },
+      tokenInfo,
+      tokenInfoContractAddress,
       from: fromProfile,
       to: toProfile,
     });

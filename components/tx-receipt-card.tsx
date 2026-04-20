@@ -23,8 +23,20 @@ type TransferItem = {
   from?: string;
   to?: string;
   value?: string;
+  tokenName?: string;
   tokenSymbol?: string;
   tokenDecimal?: string;
+  contractAddress?: string;
+};
+
+type TokenInfo = {
+  contractAddress?: string;
+  tokenName?: string;
+  symbol?: string;
+  divisor?: string;
+  tokenType?: string;
+  tokenPriceUSD?: string;
+  image?: string;
 };
 
 export type TxReceiptData = {
@@ -42,6 +54,8 @@ export type TxReceiptData = {
     total: number;
     transfers: TransferItem[];
   };
+  tokenInfo?: TokenInfo | null;
+  tokenInfoContractAddress?: string | null;
 };
 
 type TxReceiptCardProps = {
@@ -84,6 +98,31 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function formatUsdValue(priceUsdRaw?: string, amountRaw?: string) {
+  const price = Number.parseFloat(priceUsdRaw ?? "");
+  const amount = Number.parseFloat(amountRaw ?? "");
+  if (!Number.isFinite(price) || !Number.isFinite(amount)) return "-";
+  const usd = price * amount;
+  if (!Number.isFinite(usd) || usd <= 0) return "$0.00";
+  return usd.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: usd >= 1 ? 2 : 6,
+  });
+}
+
+function resolvePricingTransfer(data: TxReceiptData) {
+  const expectedContract = (data.tokenInfoContractAddress ?? "").toLowerCase();
+  const transfers = data.erc20Transfers.transfers ?? [];
+  if (expectedContract) {
+    const matched = transfers.find(
+      (item) => (item.contractAddress ?? "").toLowerCase() === expectedContract,
+    );
+    if (matched) return matched;
+  }
+  return transfers[0];
+}
+
 function buildProfileView(rawProfile: unknown, fallbackAddress?: string): ProfileView {
   const profile = parseProfile(rawProfile);
   const identityText = formatAddressDisplay(profile.identity ?? fallbackAddress ?? "");
@@ -111,15 +150,17 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
   const toAddress = tx.to as string | undefined;
   const txStatus = data.txStatus;
   const statusLabel = getStatusLabel(txStatus);
-  const firstTransfer = data.erc20Transfers.transfers[0];
-  const tokenSymbol = firstTransfer?.tokenSymbol ?? "TOKEN";
-  const amount = formatAmount(firstTransfer?.value, firstTransfer?.tokenDecimal);
+  const pricingTransfer = resolvePricingTransfer(data);
+  const tokenSymbol =
+    data.tokenInfo?.symbol ?? pricingTransfer?.tokenSymbol ?? "TOKEN";
+  const amount = formatAmount(pricingTransfer?.value, pricingTransfer?.tokenDecimal);
   const timeText = formatTimestamp((block.timestamp as string | undefined) ?? undefined);
   const fromProfileView = buildProfileView(data.from, fromAddress);
   const toProfileView = buildProfileView(data.to, toAddress);
   const blockNumber = (tx.blockNumber as string | undefined) ?? "-";
   const explorerUrl = getExplorerUrl(chain, hash);
   const txHashDisplay = formatText(hash, 16);
+  const usdValue = formatUsdValue(data.tokenInfo?.tokenPriceUSD, amount);
 
   return (
     <section className="receipt-shell">
@@ -130,6 +171,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
         </header>
 
         <OverviewCard
+          usdValue={usdValue}
           amount={amount}
           tokenSymbol={tokenSymbol}
           timeText={timeText}

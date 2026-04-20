@@ -3,6 +3,7 @@
 import styles from "@/styles/overview-card.module.css";
 
 type OverviewCardProps = {
+  usdValue: string;
   amount: string;
   tokenSymbol: string;
   timeText: string;
@@ -27,6 +28,7 @@ function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null
 }
 
 export default function OverviewCard({
+  usdValue,
   amount,
   tokenSymbol,
   timeText,
@@ -37,7 +39,7 @@ export default function OverviewCard({
 }: OverviewCardProps) {
   return (
     <section className={styles.card}>
-      <p className={styles.price}>$ --</p>
+      <p className={styles.price}>{usdValue}</p>
       <p className={`${styles.line} ${styles.lineMain}`}>
         <span className={styles.identity}>
           <Avatar label={fromIdentityText} avatarUrl={fromAvatarUrl} />
