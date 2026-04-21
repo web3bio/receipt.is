@@ -9,11 +9,13 @@ import {
   formatAmount,
   formatBlockNumberReadable,
   formatBlockTimestamp,
+  formatOverviewContractMethodPhrase,
   formatText,
   formatUsdFromTokenRaw,
   getExplorerUrl,
   getStatusClass,
   getStatusLabel,
+  normalizeAddress,
   parseBlockTimestampSeconds,
   parseProfile,
 } from "@/utils/utils";
@@ -63,6 +65,8 @@ export type TxReceiptData = {
   };
   tokenInfo?: TokenInfo | null;
   tokenInfoContractAddress?: string | null;
+  /** `contract_call` 且 `to` 与定价用 token 合约不一致时，对 `transaction.to` 单独拉取的 CoinGecko 元数据 */
+  calledContract?: TokenInfo | null;
   /** 原生币 USD（wei 18 位）：优先 CoinGecko，失败则 Etherscan ethprice；仅 native_transfer 且无 ERC-20 */
   ethUsd?: string | null;
 };
@@ -231,6 +235,78 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
       : "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
     : (data.tokenInfo?.image ?? null);
 
+  const erc20TransfersList = data.erc20Transfers.transfers ?? [];
+  const hasErc20InTx = erc20TransfersList.length > 0;
+  const isNativeTxType = data.type === "native_transfer";
+  /** 原生转账或本笔存在 ERC-20 转账：overview 用 sent … to … */
+  const overviewTransferLayout = isNativeTxType || hasErc20InTx;
+  /** 仅合约调用、无上述转账语义 */
+  const isContractCallOverview =
+    data.type === "contract_call" &&
+    Boolean((toAddress ?? "").trim()) &&
+    !overviewTransferLayout;
+
+  const contractMethodPhrase = isContractCallOverview
+    ? formatOverviewContractMethodPhrase(
+        data.functionName,
+        data.functionSelector,
+      )
+    : undefined;
+
+  const overviewToIdentityText = useMemo(() => {
+    if (!isContractCallOverview || !toAddress?.trim()) return toProfileView.identityText;
+    const t = normalizeAddress(toAddress);
+    const tryMeta = (meta?: TokenInfo | null) => {
+      if (!meta) return null;
+      const c = normalizeAddress(meta.contractAddress);
+      const alt = normalizeAddress(data.tokenInfoContractAddress ?? undefined);
+      const matches = c === t || (!c && alt === t);
+      if (!matches) return null;
+      const name = meta.tokenName?.trim();
+      const sym = meta.symbol?.trim();
+      if (name && sym) return `${name} (${sym})`;
+      if (name) return name;
+      if (sym) return sym;
+      return null;
+    };
+    return (
+      tryMeta(data.calledContract) ??
+      tryMeta(data.tokenInfo) ??
+      toProfileView.identityText
+    );
+  }, [
+    isContractCallOverview,
+    toAddress,
+    data.calledContract,
+    data.tokenInfo,
+    data.tokenInfoContractAddress,
+    toProfileView.identityText,
+  ]);
+
+  const overviewToAvatarUrl = useMemo(() => {
+    if (!isContractCallOverview || !toAddress?.trim()) return toProfileView.avatarUrl;
+    const t = normalizeAddress(toAddress);
+    const imgFrom = (meta?: TokenInfo | null) => {
+      if (!meta?.image?.trim()) return null;
+      const c = normalizeAddress(meta.contractAddress);
+      const alt = normalizeAddress(data.tokenInfoContractAddress ?? undefined);
+      if (c === t || (!c && alt === t)) return meta.image;
+      return null;
+    };
+    return (
+      imgFrom(data.calledContract) ??
+      imgFrom(data.tokenInfo) ??
+      toProfileView.avatarUrl
+    );
+  }, [
+    isContractCallOverview,
+    toAddress,
+    data.calledContract,
+    data.tokenInfo,
+    data.tokenInfoContractAddress,
+    toProfileView.avatarUrl,
+  ]);
+
   return (
     <section className="receipt-shell">
       <article className="receipt-card">
@@ -240,15 +316,26 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
         </header>
 
         <OverviewCard
+          variant={isContractCallOverview ? "contract_call" : "token_transfer"}
+          methodPhrase={contractMethodPhrase}
           usdValue={usdValue}
           amount={amount}
           tokenSymbol={tokenSymbol}
           tokenLogoUrl={tokenLogoUrl}
           blockTimestamp={block.timestamp as string | undefined}
+          chainName={
+            isContractCallOverview ? chainDisplayName(chain) : undefined
+          }
           fromIdentityText={fromProfileView.identityText}
           fromAvatarUrl={fromProfileView.avatarUrl}
-          toIdentityText={toProfileView.identityText}
-          toAvatarUrl={toProfileView.avatarUrl}
+          toIdentityText={
+            isContractCallOverview
+              ? overviewToIdentityText
+              : toProfileView.identityText
+          }
+          toAvatarUrl={
+            isContractCallOverview ? overviewToAvatarUrl : toProfileView.avatarUrl
+          }
         />
 
         <section className="receipt-flow">

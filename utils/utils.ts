@@ -30,6 +30,33 @@ export const formatText = (string: string, length?: number): string => {
   }
 };
 
+/**
+ * Human-readable method title for overview copy: `Call {phrase} Function`.
+ * Uses 4byte-style `functionName` when present, else shortens `functionSelector`.
+ */
+export function formatOverviewContractMethodPhrase(
+  functionName?: string | null,
+  functionSelector?: string | null,
+): string {
+  const raw = (functionName ?? "").trim();
+  if (raw) {
+    const head = (raw.split("(")[0] ?? raw).trim();
+    const spaced = head.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+    const parts = spaced.split(/[\s_.-]+/).filter(Boolean);
+    const titled = parts
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ")
+      .trim();
+    const s = titled || "Contract";
+    return s.length > 44 ? `${s.slice(0, 41)}…` : s;
+  }
+  const sel = (functionSelector ?? "").trim();
+  if (sel.startsWith("0x") && sel.length >= 10) {
+    return `${sel.slice(0, 10)}…`;
+  }
+  return "Contract";
+}
+
 export type BlockTimestampMode = "local" | "utc" | "unix";
 
 /** Parse Etherscan-style block timestamp: decimal or `0x` hex unix seconds. */
@@ -106,6 +133,20 @@ export function formatAmount(value?: string, decimals?: string) {
   } catch {
     return value;
   }
+}
+
+/** Overview / UI: fixed 2 fraction digits with grouping (e.g. 1,234.56). */
+export function formatTokenAmountTwoDecimals(raw: string): string {
+  const s = String(raw ?? "")
+    .trim()
+    .replace(/,/g, "");
+  if (s === "" || s === "-") return "0.00";
+  const n = Number(s);
+  if (!Number.isFinite(n)) return String(raw ?? "").trim() || "0.00";
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 const USD_PRICE_SCALE = 8;

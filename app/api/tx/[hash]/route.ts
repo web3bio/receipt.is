@@ -72,6 +72,102 @@ function tokenUsdLooksValid(value: unknown): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
+/** ERC-20 `Transfer(address,address,uint256)` — `uint256` 在 data 里 → 共 3 个 topic（与 ERC-721 四 topic 区分）。 */
+const ERC20_TRANSFER_TOPIC0 =
+  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+function transferDedupeKey(item: Erc20TransferItem): string {
+  let valueNorm: string;
+  try {
+    valueNorm = BigInt(String(item.value ?? "0")).toString();
+  } catch {
+    valueNorm = String(item.value ?? "");
+  }
+  return [
+    (item.hash ?? "").toLowerCase(),
+    normalizeAddress(item.contractAddress),
+    normalizeAddress(item.from),
+    normalizeAddress(item.to),
+    valueNorm,
+  ].join("|");
+}
+
+function topicToAddress(topic: string): string | null {
+  const t = String(topic).toLowerCase().replace(/^0x/, "");
+  if (t.length < 40) return null;
+  return `0x${t.slice(-40)}`;
+}
+
+function parseErc20TransfersFromReceiptLogs(
+  receipt: JsonRecord | null | undefined,
+  txHash: string,
+  ctx: { blockNumber?: string | null; timeStamp?: string | null },
+): Erc20TransferItem[] {
+  const logs = receipt?.logs;
+  if (!Array.isArray(logs)) return [];
+  const lowerHash = txHash.toLowerCase();
+  const out: Erc20TransferItem[] = [];
+  for (const raw of logs) {
+    const log = raw as {
+      address?: string;
+      topics?: unknown[];
+      data?: string;
+      blockNumber?: string;
+      transactionIndex?: string;
+    };
+    const topics = log.topics;
+    if (!Array.isArray(topics) || topics.length !== 3) continue;
+    const t0 = String(topics[0]).toLowerCase();
+    if (t0 !== ERC20_TRANSFER_TOPIC0) continue;
+    const fromA = topicToAddress(String(topics[1]));
+    const toA = topicToAddress(String(topics[2]));
+    if (!fromA || !toA) continue;
+    const contractRaw = String(log.address ?? "");
+    const contractAddress = normalizeAddress(contractRaw);
+    if (!contractAddress.startsWith("0x")) continue;
+    let valueStr: string;
+    try {
+      valueStr = BigInt(String(log.data ?? "0x0")).toString();
+    } catch {
+      continue;
+    }
+    const bn =
+      log.blockNumber != null
+        ? String(log.blockNumber)
+        : ctx.blockNumber != null
+          ? String(ctx.blockNumber)
+          : undefined;
+    out.push({
+      hash: lowerHash,
+      contractAddress,
+      from: fromA,
+      to: toA,
+      value: valueStr,
+      blockNumber: bn,
+      timeStamp: ctx.timeStamp != null ? String(ctx.timeStamp) : undefined,
+      transactionIndex:
+        log.transactionIndex != null ? String(log.transactionIndex) : undefined,
+    });
+  }
+  return out;
+}
+
+function mergeErc20TransfersDeduped(
+  ...lists: Erc20TransferItem[][]
+): Erc20TransferItem[] {
+  const seen = new Set<string>();
+  const merged: Erc20TransferItem[] = [];
+  for (const list of lists) {
+    for (const item of list) {
+      const k = transferDedupeKey(item);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
 function uniqueContractsInTransferOrder(transfers: Erc20TransferItem[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -580,7 +676,7 @@ export async function GET(
       transaction.to as string | undefined,
       (receipt?.contractAddress as string | undefined) ?? undefined,
     ]);
-    const erc20Transfers =
+    const tokentxTransfers =
       erc20Addresses.length > 0
         ? await fetchErc20TransfersByTxHash(
             chainId,
@@ -589,9 +685,37 @@ export async function GET(
             erc20Addresses,
           )
         : [];
+    const blockTs = (block?.timestamp as string | undefined) ?? undefined;
+    const logTransfers = parseErc20TransfersFromReceiptLogs(receipt, hash, {
+      blockNumber,
+      timeStamp: blockTs,
+    });
+    const erc20Transfers = mergeErc20TransfersDeduped(
+      tokentxTransfers,
+      logTransfers,
+    );
     const { tokenInfo, contractAddress: tokenInfoContractAddress } =
       await resolveTokenInfoFromCoingecko(chain, erc20Transfers);
     const externalType = detectExternalTxType(transaction);
+
+    const txToRaw = (transaction.to as string | undefined) ?? "";
+    const txToNorm = normalizeAddress(txToRaw);
+    let calledContract: TokenInfoItem | null = null;
+    if (
+      externalType === "contract_call" &&
+      txToNorm &&
+      erc20Transfers.length === 0
+    ) {
+      const pricedAddr = normalizeAddress(
+        tokenInfo?.contractAddress ?? tokenInfoContractAddress ?? "",
+      );
+      if (pricedAddr !== txToNorm) {
+        calledContract = await fetchCoingeckoTokenContractFull(
+          chain,
+          txToNorm,
+        );
+      }
+    }
 
     let ethUsd: string | null = null;
     if (externalType === "native_transfer" && erc20Transfers.length === 0) {
@@ -633,6 +757,7 @@ export async function GET(
       },
       tokenInfo,
       tokenInfoContractAddress,
+      calledContract,
       ethUsd,
       from: fromProfile,
       to: toProfile,

@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /** 收据页次要说明、标签、时间等统一淡色 */
+  --receipt-text-muted: #64748b;
 }
 
 @theme inline {
@@ -83,7 +85,7 @@ body {
 }
 
 .receipt-intro-muted {
-  color: #6b7280;
+  color: var(--receipt-text-muted);
   font-size: 0.875rem;
 }
 
@@ -171,7 +173,7 @@ body {
 
 .receipt-flow-arrow img {
   transform: rotate(90deg);
-  color: #6b7280;
+  color: var(--receipt-text-muted);
 }
 
 .receipt-footer {
@@ -206,7 +208,7 @@ body {
 }
 
 .receipt-detail-label {
-  color: #4b5563;
+  color: var(--receipt-text-muted);
   font-size: 0.875rem;
   line-height: 1.4;
   flex-shrink: 0;
@@ -245,7 +247,7 @@ body {
 }
 
 .receipt-detail-time-paren {
-  color: #4b5563;
+  color: var(--receipt-text-muted);
   font-weight: 500;
 }
 
