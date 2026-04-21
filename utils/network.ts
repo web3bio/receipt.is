@@ -8,11 +8,25 @@ export const CHAIN_TO_ID = {
 
 export type SupportedChain = keyof typeof CHAIN_TO_ID;
 
+const CHAIN_DISPLAY_NAMES: Record<SupportedChain, string> = {
+  eth: "Ethereum",
+  base: "Base",
+  bsc: "BNB Chain",
+  arb: "Arbitrum",
+  op: "Optimism",
+};
+
 export const SUPPORTED_CHAINS = Object.keys(CHAIN_TO_ID) as SupportedChain[];
 export const SUPPORTED_CHAIN_SET = new Set<string>(SUPPORTED_CHAINS);
 
 export function normalizeChain(chain?: string | null) {
   return chain?.toLowerCase().trim() ?? "eth";
+}
+
+/** UI / 收据文案用链全称；未知 slug 时回退为当前规范化字符串。 */
+export function getChainDisplayName(chain?: string | null): string {
+  const k = normalizeChain(chain) as SupportedChain;
+  return CHAIN_DISPLAY_NAMES[k] ?? k;
 }
 
 export function getChainId(chain: string) {

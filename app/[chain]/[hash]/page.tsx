@@ -7,6 +7,7 @@ import {
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_SET,
 } from "@/utils/network";
+import { isValidTxHash } from "@/utils/tx-hash";
 
 type PageProps = {
   params: Promise<{
@@ -41,8 +42,6 @@ type TxApiResponse = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
-
 function ErrorState({ message }: { message: string }) {
   return (
     <section className="receipt-shell">
@@ -64,7 +63,7 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
     );
   }
 
-  if (!TX_HASH_REGEX.test(hash)) {
+  if (!isValidTxHash(hash)) {
     return <ErrorState message="Invalid tx hash. Expected 0x-prefixed 64-byte hash." />;
   }
 

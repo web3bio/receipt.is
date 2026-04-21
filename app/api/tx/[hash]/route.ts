@@ -5,9 +5,8 @@ import {
   normalizeChain,
   SUPPORTED_CHAINS,
 } from "@/utils/network";
+import { isValidTxHash } from "@/utils/tx-hash";
 import { normalizeAddress } from "@/utils/utils";
-
-const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -196,15 +195,18 @@ function detectExternalTxType(transaction: JsonRecord) {
   return "native_transfer";
 }
 
-async function fetchEtherscanProxy<T>(
+type EtherscanV2Module = "proxy" | "account";
+
+async function fetchEtherscanV2<T>(
   chainId: string,
   apiKey: string,
+  module: EtherscanV2Module,
   action: string,
   params: Record<string, string>,
-) {
+): Promise<T | null | undefined> {
   const search = new URLSearchParams({
     chainid: chainId,
-    module: "proxy",
+    module,
     action,
     apikey: apiKey,
     ...params,
@@ -212,59 +214,29 @@ async function fetchEtherscanProxy<T>(
 
   const response = await fetch(
     `https://api.etherscan.io/v2/api?${search.toString()}`,
-    {
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Etherscan proxy request failed: HTTP ${response.status}`);
-  }
-
-  const payload = (await response.json()) as EtherscanProxyResponse<T>;
-
-  if (payload.error?.message) {
-    throw new Error(`Etherscan proxy error: ${payload.error.message}`);
-  }
-
-  return payload.result ?? null;
-}
-
-async function fetchEtherscanAccount<T>(
-  chainId: string,
-  apiKey: string,
-  action: string,
-  params: Record<string, string>,
-) {
-  const search = new URLSearchParams({
-    chainid: chainId,
-    module: "account",
-    action,
-    apikey: apiKey,
-    ...params,
-  });
-
-  const response = await fetch(
-    `https://api.etherscan.io/v2/api?${search.toString()}`,
-    {
-      cache: "no-store",
-    },
+    { cache: "no-store" },
   );
 
   if (!response.ok) {
     throw new Error(
-      `Etherscan account request failed: HTTP ${response.status}`,
+      `Etherscan ${module} request failed: HTTP ${response.status}`,
     );
   }
 
-  const payload = (await response.json()) as EtherscanAccountResponse<T>;
+  if (module === "proxy") {
+    const payload = (await response.json()) as EtherscanProxyResponse<T>;
+    if (payload.error?.message) {
+      throw new Error(`Etherscan proxy error: ${payload.error.message}`);
+    }
+    return payload.result ?? null;
+  }
 
+  const payload = (await response.json()) as EtherscanAccountResponse<T>;
   if (payload.status === "0" && payload.message !== "No transactions found") {
     throw new Error(
       `Etherscan account error: ${payload.result ?? payload.message ?? "Unknown error"}`,
     );
   }
-
   return payload.result;
 }
 
@@ -469,9 +441,10 @@ async function fetchErc20TransfersByTxHash(
   const seen = new Set<string>();
 
   for (const address of addresses) {
-    const result = await fetchEtherscanAccount<Erc20TransferItem[] | string>(
+    const result = await fetchEtherscanV2<Erc20TransferItem[] | string>(
       chainId,
       apiKey,
+      "account",
       "tokentx",
       {
         address,
@@ -598,7 +571,7 @@ export async function GET(
     const chainId = getChainId(chain);
     const apiKey = process.env.ETHERSCAN_API_KEY;
 
-    if (!TX_HASH_REGEX.test(hash)) {
+    if (!isValidTxHash(hash)) {
       return Response.json(
         { error: "Invalid tx hash. Expected 0x-prefixed 64-byte hash." },
         { status: 400 },
@@ -621,9 +594,10 @@ export async function GET(
       );
     }
 
-    const transaction = await fetchEtherscanProxy<JsonRecord>(
+    const transaction = await fetchEtherscanV2<JsonRecord>(
       chainId,
       apiKey,
+      "proxy",
       "eth_getTransactionByHash",
       { txhash: hash },
     );
@@ -638,18 +612,20 @@ export async function GET(
     const blockNumber = (transaction.blockNumber as string | undefined) ?? null;
 
     const [receipt, block] = await Promise.all([
-      fetchEtherscanProxy<JsonRecord>(
+      fetchEtherscanV2<JsonRecord>(
         chainId,
         apiKey,
+        "proxy",
         "eth_getTransactionReceipt",
         {
           txhash: hash,
         },
       ),
       blockNumber
-        ? fetchEtherscanProxy<JsonRecord>(
+        ? fetchEtherscanV2<JsonRecord>(
             chainId,
             apiKey,
+            "proxy",
             "eth_getBlockByNumber",
             {
               tag: blockNumber,

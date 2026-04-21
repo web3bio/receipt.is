@@ -1,9 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { formatDistanceToNow } from "date-fns";
-import { enUS } from "date-fns/locale/en-US";
 import { useMemo, useState } from "react";
+import { formatBlockTimestampRelative } from "@/utils/format-block-relative";
 import {
   type BlockTimestampMode,
   formatAmount,
@@ -16,9 +15,9 @@ import {
   getStatusClass,
   getStatusLabel,
   normalizeAddress,
-  parseBlockTimestampSeconds,
   parseProfile,
 } from "@/utils/utils";
+import { getChainDisplayName } from "@/utils/network";
 import AddressCard from "@/components/address-card";
 import OverviewCard from "@/components/overview-card";
 
@@ -111,18 +110,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function chainDisplayName(chain: string) {
-  const k = chain.toLowerCase();
-  const map: Record<string, string> = {
-    eth: "Ethereum",
-    base: "Base",
-    bsc: "BNB Chain",
-    arb: "Arbitrum",
-    op: "Optimism",
-  };
-  return map[k] ?? chain;
-}
-
 function hasNonZeroWei(value: unknown) {
   if (value == null) return false;
   try {
@@ -202,14 +189,10 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
     () => formatBlockTimestamp(blockTs, timeMode),
     [blockTs, timeMode],
   );
-  const timeRelativeAgo = useMemo(() => {
-    const sec = parseBlockTimestampSeconds(blockTs);
-    if (sec == null) return "-";
-    return formatDistanceToNow(new Date(sec * 1000), {
-      addSuffix: true,
-      locale: enUS,
-    });
-  }, [blockTs]);
+  const timeRelativeAgo = useMemo(
+    () => formatBlockTimestampRelative(blockTs),
+    [blockTs],
+  );
   const fromProfileView = buildProfileView(data.from, fromAddress);
   const toProfileView = buildProfileView(data.to, toAddress);
   const blockNumRaw = tx.blockNumber as string | undefined;
@@ -324,7 +307,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           tokenLogoUrl={tokenLogoUrl}
           blockTimestamp={block.timestamp as string | undefined}
           chainName={
-            isContractCallOverview ? chainDisplayName(chain) : undefined
+            isContractCallOverview ? getChainDisplayName(chain) : undefined
           }
           fromIdentityText={fromProfileView.identityText}
           fromAvatarUrl={fromProfileView.avatarUrl}
@@ -389,7 +372,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
                 </select>
               </div>
             </li>
-            <DetailRow label="Network" value={chainDisplayName(chain)} />
+            <DetailRow label="Network" value={getChainDisplayName(chain)} />
             <DetailRow label="Block" value={blockNumberDisplay} />
             <li className="receipt-detail-row">
               <span className="receipt-detail-label">Transaction Hash</span>

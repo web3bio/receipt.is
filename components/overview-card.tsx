@@ -1,9 +1,8 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
-import { enUS } from "date-fns/locale/en-US";
 import { useMemo } from "react";
-import { formatTokenAmountTwoDecimals, parseBlockTimestampSeconds } from "@/utils/utils";
+import { formatBlockTimestampRelative } from "@/utils/format-block-relative";
+import { formatTokenAmountTwoDecimals } from "@/utils/utils";
 import styles from "@/styles/overview-card.module.css";
 
 type OverviewVariant = "contract_call" | "token_transfer";
@@ -137,14 +136,10 @@ export default function OverviewCard({
   toAvatarUrl,
   chainName,
 }: OverviewCardProps) {
-  const relativeTime = useMemo(() => {
-    const sec = parseBlockTimestampSeconds(blockTimestamp);
-    if (sec == null) return "-";
-    return formatDistanceToNow(new Date(sec * 1000), {
-      addSuffix: true,
-      locale: enUS,
-    });
-  }, [blockTimestamp]);
+  const relativeTime = useMemo(
+    () => formatBlockTimestampRelative(blockTimestamp),
+    [blockTimestamp],
+  );
   const displayAmount = useMemo(
     () => formatTokenAmountTwoDecimals(amount),
     [amount],
