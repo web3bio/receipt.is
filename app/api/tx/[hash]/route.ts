@@ -1,5 +1,10 @@
 import { NextRequest } from "next/server";
-import { getChainId, normalizeChain, SUPPORTED_CHAINS } from "@/utils/network";
+import {
+  getChainId,
+  getCoingeckoAssetPlatform,
+  normalizeChain,
+  SUPPORTED_CHAINS,
+} from "@/utils/network";
 import { normalizeAddress } from "@/utils/utils";
 
 const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
@@ -20,12 +25,6 @@ type EtherscanProxyResponse<T> = {
 };
 
 type EtherscanAccountResponse<T> = {
-  status?: string;
-  message?: string;
-  result?: T;
-};
-
-type EtherscanTokenResponse<T> = {
   status?: string;
   message?: string;
   result?: T;
@@ -64,6 +63,26 @@ type TokenInfoItem = {
   tokenPriceUSD?: string;
   image?: string;
 };
+
+function tokenUsdLooksValid(value: unknown): boolean {
+  if (value == null) return false;
+  const s = String(value).replace(/,/g, "").replace(/^\$\s*/, "").trim();
+  if (!s) return false;
+  const n = Number.parseFloat(s);
+  return Number.isFinite(n) && n > 0;
+}
+
+function uniqueContractsInTransferOrder(transfers: Erc20TransferItem[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of transfers) {
+    const c = normalizeAddress(item.contractAddress);
+    if (!c || seen.has(c)) continue;
+    seen.add(c);
+    out.push(c);
+  }
+  return out;
+}
 
 function mapTxStatus(statusHex?: string | null) {
   if (!statusHex) return "pending_or_unknown";
@@ -153,40 +172,185 @@ async function fetchEtherscanAccount<T>(
   return payload.result;
 }
 
-async function fetchEtherscanToken<T>(
+/** Native / gas token last USD via Etherscan `stats` `ethprice` (field name `ethusd` on all supported v2 chains). */
+async function fetchEtherscanNativeUsd(
   chainId: string,
   apiKey: string,
-  action: string,
-  params: Record<string, string>,
-) {
-  const search = new URLSearchParams({
-    chainid: chainId,
-    module: "token",
-    action,
-    apikey: apiKey,
-    ...params,
-  });
-
-  const response = await fetch(
-    `https://api.etherscan.io/v2/api?${search.toString()}`,
-    {
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Etherscan token request failed: HTTP ${response.status}`);
-  }
-
-  const payload = (await response.json()) as EtherscanTokenResponse<T>;
-
-  if (payload.status === "0") {
-    throw new Error(
-      `Etherscan token error: ${payload.result ?? payload.message ?? "Unknown error"}`,
+): Promise<string | null> {
+  try {
+    const search = new URLSearchParams({
+      chainid: chainId,
+      module: "stats",
+      action: "ethprice",
+      apikey: apiKey,
+    });
+    const response = await fetch(
+      `https://api.etherscan.io/v2/api?${search.toString()}`,
+      { cache: "no-store" },
     );
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as {
+      status?: string;
+      message?: string;
+      result?: { ethusd?: string } | string;
+    };
+    if (payload.status !== "1") {
+      return null;
+    }
+    const row = payload.result;
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      return null;
+    }
+    const raw = (row as { ethusd?: string }).ethusd;
+    if (raw == null || String(raw).trim() === "") {
+      return null;
+    }
+    const n = Number.parseFloat(String(raw).replace(/,/g, ""));
+    if (!Number.isFinite(n) || n <= 0) {
+      return null;
+    }
+    return String(n);
+  } catch {
+    return null;
   }
+}
 
-  return payload.result;
+function coingeckoFetchHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "User-Agent": "web3bio-receipt/1.0 (receipt; +https://web3.bio)",
+  };
+  const demoKey = process.env.COINGECKO_API_KEY?.trim();
+  if (demoKey) {
+    headers["x-cg-demo-api-key"] = demoKey;
+  }
+  return headers;
+}
+
+/** 免费公共 `simple/token_price`；可选 `COINGECKO_API_KEY`（Demo）提高限流。 */
+async function tryCoingeckoTokenUsd(
+  chain: string,
+  contractLower: string,
+): Promise<string | null> {
+  const platform = getCoingeckoAssetPlatform(chain);
+  if (!platform) return null;
+  const addr = contractLower.toLowerCase();
+  try {
+    const url = `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${encodeURIComponent(addr)}&vs_currencies=usd`;
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: coingeckoFetchHeaders(),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as Record<
+      string,
+      { usd?: number } | undefined
+    >;
+    const row = payload[addr] ?? payload[contractLower];
+    const usd = row?.usd;
+    if (usd == null || !Number.isFinite(usd) || usd <= 0) {
+      return null;
+    }
+    return String(usd);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * CoinGecko `/coins/{platform}/contract/{address}`：tokenInfo 唯一来源（名称、符号、小数、图、参考价）。
+ * 无 `market_data` 时仍可返回元数据；USD 可再由 `tryCoingeckoTokenUsd` 补齐。
+ */
+async function fetchCoingeckoTokenContractFull(
+  chain: string,
+  contractLower: string,
+): Promise<TokenInfoItem | null> {
+  const platform = getCoingeckoAssetPlatform(chain);
+  if (!platform) return null;
+  const addr = contractLower.toLowerCase();
+  try {
+    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(
+      platform,
+    )}/contract/${encodeURIComponent(addr)}`;
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: coingeckoFetchHeaders(),
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as {
+      name?: string;
+      symbol?: string;
+      image?: { small?: string; large?: string; thumb?: string };
+      market_data?: { current_price?: { usd?: number } };
+      detail_platforms?: Record<
+        string,
+        { decimal_place?: number; contract_address?: string }
+      >;
+    };
+    const rawUsd = payload.market_data?.current_price?.usd;
+    const tokenPriceUSD =
+      rawUsd != null && Number.isFinite(rawUsd) && rawUsd > 0
+        ? String(rawUsd)
+        : undefined;
+    const imgRaw =
+      payload.image?.small ??
+      payload.image?.large ??
+      payload.image?.thumb ??
+      null;
+    const image =
+      imgRaw != null && String(imgRaw).trim() !== ""
+        ? String(imgRaw).trim()
+        : undefined;
+    const dec = payload.detail_platforms?.[platform]?.decimal_place;
+    const divisor =
+      dec != null && Number.isFinite(dec) && dec >= 0 && dec <= 80
+        ? String(Math.trunc(dec))
+        : undefined;
+    const sym = payload.symbol?.trim();
+    return {
+      contractAddress: addr,
+      tokenName: payload.name?.trim() || undefined,
+      symbol: sym ? sym.toUpperCase() : undefined,
+      divisor,
+      tokenType: "ERC-20",
+      tokenPriceUSD,
+      image,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** 原生币 USD：`ethereum` / `binancecoin`（免费 `simple/price`）。 */
+async function tryCoingeckoNativeUsd(chain: string): Promise<string | null> {
+  const cgId = normalizeChain(chain) === "bsc" ? "binancecoin" : "ethereum";
+  try {
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(cgId)}&vs_currencies=usd`,
+      {
+        cache: "no-store",
+        headers: coingeckoFetchHeaders(),
+      },
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const payload = (await response.json()) as Record<
+      string,
+      { usd?: number } | undefined
+    >;
+    const usd = payload[cgId]?.usd;
+    if (usd == null || !Number.isFinite(usd) || usd <= 0) return null;
+    return String(usd);
+  } catch {
+    return null;
+  }
 }
 
 function uniqStrings(values: Array<string | null | undefined>) {
@@ -241,35 +405,46 @@ async function fetchErc20TransfersByTxHash(
   return merged;
 }
 
-async function resolveTokenInfoFromTransfers(
-  chainId: string,
-  apiKey: string,
+async function resolveTokenInfoFromCoingecko(
+  chain: string,
   transfers: Erc20TransferItem[],
 ): Promise<{ tokenInfo: TokenInfoItem | null; contractAddress: string | null }> {
-  const firstContract = transfers
-    .map((item) => normalizeAddress(item.contractAddress))
-    .find(Boolean);
-
-  if (!firstContract) {
+  const contracts = uniqueContractsInTransferOrder(transfers);
+  if (contracts.length === 0) {
     return { tokenInfo: null, contractAddress: null };
   }
 
-  try {
-    const result = await fetchEtherscanToken<TokenInfoItem[] | TokenInfoItem>(
-      chainId,
-      apiKey,
-      "tokeninfo",
-      { contractaddress: firstContract },
-    );
-    const tokenInfo = Array.isArray(result) ? result[0] : result;
-    if (!tokenInfo || typeof tokenInfo !== "object") {
-      return { tokenInfo: null, contractAddress: firstContract };
+  let fallback: { tokenInfo: TokenInfoItem; contractAddress: string } | null =
+    null;
+
+  for (const contract of contracts) {
+    let info = await fetchCoingeckoTokenContractFull(chain, contract);
+    if (!info) {
+      continue;
     }
-    return { tokenInfo, contractAddress: firstContract };
-  } catch {
-    // tokeninfo is not guaranteed for every token / plan; degrade gracefully.
-    return { tokenInfo: null, contractAddress: firstContract };
+    if (!tokenUsdLooksValid(info.tokenPriceUSD)) {
+      const cgUsd = await tryCoingeckoTokenUsd(chain, contract);
+      if (cgUsd) {
+        info = { ...info, tokenPriceUSD: cgUsd };
+      }
+    }
+    const priceOk = tokenUsdLooksValid(info.tokenPriceUSD);
+    if (priceOk) {
+      return { tokenInfo: info, contractAddress: contract };
+    }
+    if (!fallback) {
+      fallback = { tokenInfo: info, contractAddress: contract };
+    }
   }
+
+  if (fallback) {
+    return {
+      tokenInfo: fallback.tokenInfo,
+      contractAddress: fallback.contractAddress,
+    };
+  }
+
+  return { tokenInfo: null, contractAddress: contracts[0] ?? null };
 }
 
 async function resolveFunctionName(functionSelector: string) {
@@ -415,12 +590,16 @@ export async function GET(
           )
         : [];
     const { tokenInfo, contractAddress: tokenInfoContractAddress } =
-      await resolveTokenInfoFromTransfers(
-      chainId,
-      apiKey,
-      erc20Transfers,
-      );
+      await resolveTokenInfoFromCoingecko(chain, erc20Transfers);
     const externalType = detectExternalTxType(transaction);
+
+    let ethUsd: string | null = null;
+    if (externalType === "native_transfer" && erc20Transfers.length === 0) {
+      const cgNative = await tryCoingeckoNativeUsd(chain);
+      ethUsd =
+        cgNative ?? (await fetchEtherscanNativeUsd(chainId, apiKey));
+    }
+
     const sanitizedReceipt = receipt
       ? Object.fromEntries(
           Object.entries(receipt).filter(([key]) => key !== "logs"),
@@ -454,6 +633,7 @@ export async function GET(
       },
       tokenInfo,
       tokenInfoContractAddress,
+      ethUsd,
       from: fromProfile,
       to: toProfile,
     });

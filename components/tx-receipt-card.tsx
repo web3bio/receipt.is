@@ -1,13 +1,20 @@
 "use client";
 
 import Image from "next/image";
+import { formatDistanceToNow } from "date-fns";
+import { enUS } from "date-fns/locale/en-US";
+import { useMemo, useState } from "react";
 import {
+  type BlockTimestampMode,
   formatAmount,
+  formatBlockNumberReadable,
+  formatBlockTimestamp,
   formatText,
-  formatTimestamp,
+  formatUsdFromTokenRaw,
   getExplorerUrl,
   getStatusClass,
   getStatusLabel,
+  parseBlockTimestampSeconds,
   parseProfile,
 } from "@/utils/utils";
 import AddressCard from "@/components/address-card";
@@ -56,6 +63,8 @@ export type TxReceiptData = {
   };
   tokenInfo?: TokenInfo | null;
   tokenInfoContractAddress?: string | null;
+  /** 原生币 USD（wei 18 位）：优先 CoinGecko，失败则 Etherscan ethprice；仅 native_transfer 且无 ERC-20 */
+  ethUsd?: string | null;
 };
 
 type TxReceiptCardProps = {
@@ -98,17 +107,25 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatUsdValue(priceUsdRaw?: string, amountRaw?: string) {
-  const price = Number.parseFloat(priceUsdRaw ?? "");
-  const amount = Number.parseFloat(amountRaw ?? "");
-  if (!Number.isFinite(price) || !Number.isFinite(amount)) return "-";
-  const usd = price * amount;
-  if (!Number.isFinite(usd) || usd <= 0) return "$0.00";
-  return usd.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: usd >= 1 ? 2 : 6,
-  });
+function chainDisplayName(chain: string) {
+  const k = chain.toLowerCase();
+  const map: Record<string, string> = {
+    eth: "Ethereum",
+    base: "Base",
+    bsc: "BNB Chain",
+    arb: "Arbitrum",
+    op: "Optimism",
+  };
+  return map[k] ?? chain;
+}
+
+function hasNonZeroWei(value: unknown) {
+  if (value == null) return false;
+  try {
+    return BigInt(String(value)) > BigInt(0);
+  } catch {
+    return false;
+  }
 }
 
 function resolvePricingTransfer(data: TxReceiptData) {
@@ -144,6 +161,7 @@ function buildProfileView(rawProfile: unknown, fallbackAddress?: string): Profil
 }
 
 export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps) {
+  const [timeMode, setTimeMode] = useState<BlockTimestampMode>("local");
   const tx = data.transaction ?? {};
   const block = data.block ?? {};
   const fromAddress = tx.from as string | undefined;
@@ -151,16 +169,67 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
   const txStatus = data.txStatus;
   const statusLabel = getStatusLabel(txStatus);
   const pricingTransfer = resolvePricingTransfer(data);
-  const tokenSymbol =
-    data.tokenInfo?.symbol ?? pricingTransfer?.tokenSymbol ?? "TOKEN";
-  const amount = formatAmount(pricingTransfer?.value, pricingTransfer?.tokenDecimal);
-  const timeText = formatTimestamp((block.timestamp as string | undefined) ?? undefined);
+  const nativeEthPricing =
+    data.type === "native_transfer" &&
+    Boolean(data.ethUsd?.trim()) &&
+    hasNonZeroWei(tx.value);
+
+  const tokenSymbol = nativeEthPricing
+    ? chain.toLowerCase() === "bsc"
+      ? "BNB"
+      : "ETH"
+    : data.tokenInfo?.symbol ?? pricingTransfer?.tokenSymbol ?? "TOKEN";
+  const decimalsForUsd = nativeEthPricing
+    ? "18"
+    : (() => {
+        const td = pricingTransfer?.tokenDecimal;
+        const div = data.tokenInfo?.divisor;
+        const tdN = td != null ? Number.parseInt(String(td), 10) : Number.NaN;
+        if (Number.isFinite(tdN) && tdN > 0) return String(td);
+        const divN = div != null ? Number.parseInt(String(div), 10) : Number.NaN;
+        if (Number.isFinite(divN) && divN > 0) return String(div);
+        return td ?? div ?? undefined;
+      })();
+  const amount = nativeEthPricing
+    ? formatAmount(String(tx.value), "18")
+    : formatAmount(pricingTransfer?.value, decimalsForUsd);
+  const blockTs = (block.timestamp as string | undefined) ?? undefined;
+  const timeText = useMemo(
+    () => formatBlockTimestamp(blockTs, timeMode),
+    [blockTs, timeMode],
+  );
+  const timeRelativeAgo = useMemo(() => {
+    const sec = parseBlockTimestampSeconds(blockTs);
+    if (sec == null) return "-";
+    return formatDistanceToNow(new Date(sec * 1000), {
+      addSuffix: true,
+      locale: enUS,
+    });
+  }, [blockTs]);
   const fromProfileView = buildProfileView(data.from, fromAddress);
   const toProfileView = buildProfileView(data.to, toAddress);
-  const blockNumber = (tx.blockNumber as string | undefined) ?? "-";
+  const blockNumRaw = tx.blockNumber as string | undefined;
+  const blockNumberReadable = formatBlockNumberReadable(blockNumRaw);
+  const blockNumberDisplay =
+    blockNumberReadable === "-"
+      ? "-"
+      : txStatus === "success"
+        ? `${blockNumberReadable} (Confirmed)`
+        : blockNumberReadable;
   const explorerUrl = getExplorerUrl(chain, hash);
-  const txHashDisplay = formatText(hash, 16);
-  const usdValue = formatUsdValue(data.tokenInfo?.tokenPriceUSD, amount);
+  const usdValue = nativeEthPricing
+    ? formatUsdFromTokenRaw(String(tx.value), "18", data.ethUsd)
+    : formatUsdFromTokenRaw(
+        pricingTransfer?.value,
+        decimalsForUsd,
+        data.tokenInfo?.tokenPriceUSD,
+      );
+
+  const tokenLogoUrl = nativeEthPricing
+    ? chain.toLowerCase() === "bsc"
+      ? "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png"
+      : "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+    : (data.tokenInfo?.image ?? null);
 
   return (
     <section className="receipt-shell">
@@ -174,7 +243,8 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           usdValue={usdValue}
           amount={amount}
           tokenSymbol={tokenSymbol}
-          timeText={timeText}
+          tokenLogoUrl={tokenLogoUrl}
+          blockTimestamp={block.timestamp as string | undefined}
           fromIdentityText={fromProfileView.identityText}
           fromAvatarUrl={fromProfileView.avatarUrl}
           toIdentityText={toProfileView.identityText}
@@ -203,10 +273,43 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
 
         <footer className="receipt-footer">
           <ul className="receipt-detail-list">
-            <DetailRow label="Time" value={timeText} />
-            <DetailRow label="Network" value={chain} />
-            <DetailRow label="BlockNumber" value={blockNumber} />
-            <DetailRow label="TransactionHash" value={txHashDisplay} />
+            <li className="receipt-detail-row">
+              <span className="receipt-detail-label">Time</span>
+              <div className="receipt-detail-time">
+                <span className="receipt-detail-time-main">
+                  {timeRelativeAgo === "-" ? (
+                    "-"
+                  ) : (
+                    <>
+                      <span className="receipt-detail-time-ago">{timeRelativeAgo}</span>
+                      {timeText !== "-" && timeText.trim() !== "" ? (
+                        <span className="receipt-detail-time-paren"> ({timeText})</span>
+                      ) : null}
+                    </>
+                  )}
+                </span>
+                <select
+                  className="receipt-time-mode-select"
+                  aria-label="Time display mode"
+                  value={timeMode}
+                  onChange={(e) =>
+                    setTimeMode(e.target.value as BlockTimestampMode)
+                  }
+                >
+                  <option value="local">Local</option>
+                  <option value="unix">Unix</option>
+                  <option value="utc">UTC</option>
+                </select>
+              </div>
+            </li>
+            <DetailRow label="Network" value={chainDisplayName(chain)} />
+            <DetailRow label="Block" value={blockNumberDisplay} />
+            <li className="receipt-detail-row">
+              <span className="receipt-detail-label">Transaction Hash</span>
+              <span className="receipt-detail-value receipt-detail-value--hash">
+                {hash}
+              </span>
+            </li>
           </ul>
           <a className="receipt-explorer-btn" href={explorerUrl} target="_blank" rel="noreferrer">
             Explorer

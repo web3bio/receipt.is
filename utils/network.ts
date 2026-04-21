@@ -18,3 +18,16 @@ export function normalizeChain(chain?: string | null) {
 export function getChainId(chain: string) {
   return CHAIN_TO_ID[chain as SupportedChain];
 }
+
+/** CoinGecko `simple/token_price/{platform}`（免费公共 API，可选 Demo key） */
+export const CHAIN_TO_COINGECKO_PLATFORM: Record<SupportedChain, string> = {
+  eth: "ethereum",
+  base: "base",
+  bsc: "binance-smart-chain",
+  arb: "arbitrum-one",
+  op: "optimistic-ethereum",
+};
+
+export function getCoingeckoAssetPlatform(chain: string) {
+  return CHAIN_TO_COINGECKO_PLATFORM[normalizeChain(chain) as SupportedChain];
+}

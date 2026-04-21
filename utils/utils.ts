@@ -30,14 +30,64 @@ export const formatText = (string: string, length?: number): string => {
   }
 };
 
-export function formatTimestamp(timestampHexOrUnix?: string) {
-  if (!timestampHexOrUnix) return "-";
-  const asNumber = timestampHexOrUnix.startsWith("0x")
-    ? Number.parseInt(timestampHexOrUnix, 16)
-    : Number.parseInt(timestampHexOrUnix, 10);
+export type BlockTimestampMode = "local" | "utc" | "unix";
 
-  if (!Number.isFinite(asNumber) || asNumber <= 0) return "-";
-  return new Date(asNumber * 1000).toLocaleString();
+/** Parse Etherscan-style block timestamp: decimal or `0x` hex unix seconds. */
+export function parseBlockTimestampSeconds(
+  timestampHexOrUnix?: string,
+): number | null {
+  if (!timestampHexOrUnix?.trim()) return null;
+  const raw = timestampHexOrUnix.trim();
+  const asNumber = raw.startsWith("0x")
+    ? Number.parseInt(raw, 16)
+    : Number.parseInt(raw, 10);
+  if (!Number.isFinite(asNumber) || asNumber <= 0) return null;
+  return asNumber;
+}
+
+export function formatBlockTimestamp(
+  timestampHexOrUnix: string | undefined,
+  mode: BlockTimestampMode,
+): string {
+  const sec = parseBlockTimestampSeconds(timestampHexOrUnix);
+  if (sec == null) return "-";
+  if (mode === "unix") return String(sec);
+  const d = new Date(sec * 1000);
+  if (mode === "utc") {
+    return d.toLocaleString("en-US", {
+      timeZone: "UTC",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+export function formatTimestamp(timestampHexOrUnix?: string) {
+  return formatBlockTimestamp(timestampHexOrUnix, "local");
+}
+
+/** Block tag from RPC / Etherscan: decimal string or `0x` hex → plain integer string (no scientific notation). */
+export function formatBlockNumberReadable(raw?: string): string {
+  if (raw == null || String(raw).trim() === "") return "-";
+  const trimmed = String(raw).trim();
+  try {
+    const n = trimmed.startsWith("0x") ? BigInt(trimmed) : BigInt(trimmed);
+    return n.toString();
+  } catch {
+    return trimmed;
+  }
 }
 
 export function formatAmount(value?: string, decimals?: string) {
@@ -56,6 +106,75 @@ export function formatAmount(value?: string, decimals?: string) {
   } catch {
     return value;
   }
+}
+
+const USD_PRICE_SCALE = 8;
+
+/**
+ * USD ≈ (raw token amount × USD price per token), using chain decimals.
+ * Uses BigInt so large transfers are not mangled by parseFloat on human-readable amounts.
+ */
+export function formatUsdFromTokenRaw(
+  valueRaw?: string | number | null,
+  decimalsStr?: string | number | null,
+  priceUsdRaw?: string | number | null,
+): string {
+  const valueStr = valueRaw != null && valueRaw !== "" ? String(valueRaw).trim() : "";
+  const priceStr =
+    priceUsdRaw != null && priceUsdRaw !== "" ? String(priceUsdRaw).trim() : "";
+  if (!valueStr || !priceStr) return "-";
+
+  const priceClean = priceStr.replace(/,/g, "").replace(/^\$\s*/, "").trim();
+  const price = Number.parseFloat(priceClean);
+  if (!Number.isFinite(price) || price < 0) return "-";
+  if (price === 0) return "$0.00";
+
+  const decimals = Number.parseInt(String(decimalsStr ?? "0"), 10);
+  if (!Number.isFinite(decimals) || decimals < 0 || decimals > 80) return "-";
+
+  let raw: bigint;
+  try {
+    raw = BigInt(valueStr);
+  } catch {
+    return "-";
+  }
+  if (raw === BigInt(0)) return "$0.00";
+
+  const priceScaled = Math.round(price * 10 ** USD_PRICE_SCALE);
+  if (!Number.isFinite(priceScaled) || priceScaled <= 0) return "-";
+
+  const p = BigInt(priceScaled);
+  let denom: bigint;
+  try {
+    denom = BigInt(10) ** BigInt(decimals);
+  } catch {
+    return "-";
+  }
+
+  const scaledUsd = (raw * p) / denom;
+  const centDivisor = BigInt(10) ** BigInt(USD_PRICE_SCALE - 2);
+  const roundedCents = (scaledUsd + centDivisor / BigInt(2)) / centDivisor;
+
+  if (roundedCents === BigInt(0)) {
+    if (scaledUsd === BigInt(0)) return "$0.00";
+    const usdTiny = Number(scaledUsd) / 10 ** USD_PRICE_SCALE;
+    if (!Number.isFinite(usdTiny) || usdTiny <= 0) return "< $0.01";
+    return usdTiny.toLocaleString(undefined, {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 8,
+    });
+  }
+
+  const usdNumber = Number(roundedCents) / 100;
+  if (!Number.isFinite(usdNumber)) return "-";
+
+  return usdNumber.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: usdNumber >= 1 && usdNumber < 1_000_000 ? 2 : 4,
+  });
 }
 
 export function getExplorerUrl(chain: string, hash: string) {

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
+import ReceiptSkeletonCard from "@/components/receipt-skeleton-card";
 import TxReceiptCard, { type TxReceiptData } from "@/components/tx-receipt-card";
 import {
   normalizeChain,
@@ -32,6 +33,7 @@ type TxApiResponse = {
   };
   tokenInfo?: TxReceiptData["tokenInfo"];
   tokenInfoContractAddress?: TxReceiptData["tokenInfoContractAddress"];
+  ethUsd?: TxReceiptData["ethUsd"];
   [key: string]: unknown;
 };
 
@@ -40,85 +42,12 @@ export const revalidate = 0;
 
 const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 
-function LoadingCard() {
-  return (
-    <section className="receipt-shell">
-      <article className="receipt-loading-card">
-        <header className="receipt-topbar">
-          <div className="receipt-skeleton receipt-skeleton-badge" />
-          <div className="receipt-skeleton receipt-skeleton-share" />
-        </header>
-
-        <section className="receipt-summary-card">
-          <div className="receipt-skeleton receipt-skeleton-price" />
-          <div className="receipt-skeleton receipt-skeleton-summary-line" />
-          <div className="receipt-skeleton receipt-skeleton-summary-sub" />
-          <hr className="receipt-divider" />
-          <div className="receipt-skeleton receipt-skeleton-note" />
-        </section>
-
-        <section className="receipt-flow">
-          <div className="receipt-profile-card">
-            <div className="receipt-skeleton receipt-skeleton-profile-title" />
-            <div className="receipt-profile-row">
-              <div className="receipt-skeleton receipt-skeleton-avatar" />
-              <div className="receipt-profile-content">
-                <div className="receipt-skeleton receipt-skeleton-profile-line-lg" />
-                <div className="receipt-skeleton receipt-skeleton-profile-line-sm" />
-              </div>
-              <div className="receipt-skeleton receipt-skeleton-copy" />
-            </div>
-          </div>
-
-          <div className="receipt-flow-arrow" aria-hidden>
-            ↓
-          </div>
-
-          <div className="receipt-profile-card">
-            <div className="receipt-skeleton receipt-skeleton-profile-title" />
-            <div className="receipt-profile-row">
-              <div className="receipt-skeleton receipt-skeleton-avatar" />
-              <div className="receipt-profile-content">
-                <div className="receipt-skeleton receipt-skeleton-profile-line-lg" />
-                <div className="receipt-skeleton receipt-skeleton-profile-line-sm" />
-              </div>
-              <div className="receipt-skeleton receipt-skeleton-copy" />
-            </div>
-          </div>
-        </section>
-
-        <footer className="receipt-footer">
-          <ul className="receipt-detail-list">
-            <li className="receipt-detail-row">
-              <div className="receipt-skeleton receipt-skeleton-detail-label" />
-              <div className="receipt-skeleton receipt-skeleton-detail-value" />
-            </li>
-            <li className="receipt-detail-row">
-              <div className="receipt-skeleton receipt-skeleton-detail-label" />
-              <div className="receipt-skeleton receipt-skeleton-detail-value" />
-            </li>
-            <li className="receipt-detail-row">
-              <div className="receipt-skeleton receipt-skeleton-detail-label" />
-              <div className="receipt-skeleton receipt-skeleton-detail-value" />
-            </li>
-            <li className="receipt-detail-row">
-              <div className="receipt-skeleton receipt-skeleton-detail-label" />
-              <div className="receipt-skeleton receipt-skeleton-detail-value-long" />
-            </li>
-          </ul>
-          <div className="receipt-skeleton receipt-skeleton-explorer" />
-        </footer>
-      </article>
-    </section>
-  );
-}
-
 function ErrorState({ message }: { message: string }) {
   return (
     <section className="receipt-shell">
-      <div className="receipt-loading-card">
+      <article className="receipt-card">
         <p className="receipt-error-text">{message}</p>
-      </div>
+      </article>
     </section>
   );
 }
@@ -187,6 +116,7 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
         },
         tokenInfo: data.tokenInfo ?? null,
         tokenInfoContractAddress: data.tokenInfoContractAddress ?? null,
+        ethUsd: data.ethUsd ?? null,
       }}
     />
   );
@@ -198,7 +128,7 @@ export default async function TxPage({ params }: PageProps) {
   return (
     <main className="receipt-page">
       <div className="receipt-page-wrap">
-        <Suspense fallback={<LoadingCard />}>
+        <Suspense fallback={<ReceiptSkeletonCard />}>
           <TxContent chain={chain} hash={hash} />
         </Suspense>
       </div>
