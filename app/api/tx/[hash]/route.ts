@@ -128,11 +128,12 @@ const DEX_ROUTERS_LOWER: Record<string, string> = {
   "0x6131b5fae19ea4f9d964eac0408e4408b66337b5": "KyberSwap",
   // CoW Swap
   "0x9008d19f58aabd9ed0d60971565aa8510560ab41": "CoW Swap",
-  // PancakeSwap
+  // PancakeSwap (V2 / V3 routers + Universal Router on multi-chain incl. Ethereum)
   "0x10ed43c718714eb63d5aa57b78b54704e256024e": "PancakeSwap",
   "0x13f4ea83d0bd40e75c8222255bc855a974568dd4": "PancakeSwap",
   "0x1b81d678ffb9c0263b24a97847620c99d213eb14": "PancakeSwap",
   "0x1a0a18ac4becddbd6389559687d1a73d8927e416": "PancakeSwap",
+  "0x65b382653f7c31bc0af67f188122035461ec9c76": "PancakeSwap",
   // SushiSwap
   "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f": "SushiSwap",
   // Aerodrome (Base)
@@ -146,15 +147,27 @@ const DEX_ROUTERS_LOWER: Record<string, string> = {
 };
 
 /**
- * 在 receipt logs 里识别 DEX：通过特征 `Swap` 事件 topic0。
- * V2 / V3 fork 共享 topic，按链推断展示名（bsc → PancakeSwap，其余 → Uniswap）。
+ * 在 receipt logs 里按特征 `Swap` 事件识别 DEX 版本 / 品牌。
+ * V2 / V3 fork 共享 topic（Uniswap / Sushi / Pancake V2、Uniswap V3 / Sushi V3）；
+ * PancakeSwap V3 因事件多 2 个 `protocolFees*` 参数 topic0 不同，可精确识别为 PancakeSwap。
  */
-const DEX_SWAP_TOPIC0_V3 =
-  "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67";
-const DEX_SWAP_TOPIC0_V2 =
-  "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822";
-const DEX_SWAP_TOPIC0_V4 =
-  "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f";
+type DexSwapHit = { brand?: string; version: "V2" | "V3" | "V4" };
+
+const DEX_SWAP_TOPIC: Record<string, DexSwapHit> = {
+  "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822": {
+    version: "V2",
+  },
+  "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67": {
+    version: "V3",
+  },
+  "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f": {
+    version: "V4",
+  },
+  "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83": {
+    brand: "PancakeSwap",
+    version: "V3",
+  },
+};
 
 function detectDexFromLogs(
   receipt: JsonRecord | null | undefined,
@@ -162,23 +175,25 @@ function detectDexFromLogs(
 ): string | null {
   const logs = receipt?.logs;
   if (!Array.isArray(logs)) return null;
-  let v: "V4" | "V3" | "V2" | null = null;
+  let best: DexSwapHit | null = null;
   for (const raw of logs) {
     const log = raw as { topics?: unknown[] };
     const topics = log.topics;
     if (!Array.isArray(topics) || topics.length === 0) continue;
     const t0 = String(topics[0]).toLowerCase();
-    if (t0 === DEX_SWAP_TOPIC0_V4) {
-      v = "V4";
+    const hit = DEX_SWAP_TOPIC[t0];
+    if (!hit) continue;
+    if (hit.brand) {
+      best = hit;
       break;
     }
-    if (t0 === DEX_SWAP_TOPIC0_V3) v ??= "V3";
-    else if (t0 === DEX_SWAP_TOPIC0_V2) v ??= "V2";
+    if (!best) best = hit;
+    else if (best.version === "V2" && hit.version !== "V2") best = hit;
   }
-  if (!v) return null;
+  if (!best) return null;
+  if (best.brand) return `${best.brand} ${best.version}`;
   const isBsc = normalizeChain(chain) === "bsc";
-  const brand = isBsc ? "PancakeSwap" : "Uniswap";
-  return `${brand} ${v}`;
+  return `${isBsc ? "PancakeSwap" : "Uniswap"} ${best.version}`;
 }
 
 function tokenUsdLooksValid(value: unknown): boolean {
