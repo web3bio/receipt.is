@@ -47,6 +47,23 @@ type TokenInfo = {
   image?: string;
 };
 
+type SwapTokenItem = {
+  isNative: boolean;
+  contractAddress: string | null;
+  symbol: string;
+  decimals: string;
+  rawAmount: string;
+  tokenName?: string | null;
+  image?: string | null;
+};
+
+type SwapInfo = {
+  dexName: string | null;
+  routerAddress: string;
+  fromToken: SwapTokenItem;
+  toToken: SwapTokenItem;
+};
+
 export type TxReceiptData = {
   type?: string;
   txStatus?: string;
@@ -68,6 +85,8 @@ export type TxReceiptData = {
   calledContract?: TokenInfo | null;
   /** 原生币 USD（wei 18 位）：优先 CoinGecko，失败则 Etherscan ethprice；仅 native_transfer 且无 ERC-20 */
   ethUsd?: string | null;
+  /** 仅 `contract_call`：识别到的 token swap 信息（双侧 token + DEX）；非 swap 时为 null。 */
+  swap?: SwapInfo | null;
 };
 
 type TxReceiptCardProps = {
@@ -221,12 +240,17 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
   const erc20TransfersList = data.erc20Transfers.transfers ?? [];
   const hasErc20InTx = erc20TransfersList.length > 0;
   const isNativeTxType = data.type === "native_transfer";
-  /** 原生转账或本笔存在 ERC-20 转账：overview 用 sent … to … */
-  const overviewTransferLayout = isNativeTxType || hasErc20InTx;
-  /** 仅合约调用、无上述转账语义 */
+  /** swap：合约调用且 API 已识别 in/out token */
+  const isSwapOverview =
+    data.type === "contract_call" && Boolean(data.swap);
+  /** 原生转账或本笔存在 ERC-20 转账（且非 swap）：overview 用 sent … to … */
+  const overviewTransferLayout =
+    !isSwapOverview && (isNativeTxType || hasErc20InTx);
+  /** 仅合约调用、无上述转账/swap 语义 */
   const isContractCallOverview =
     data.type === "contract_call" &&
     Boolean((toAddress ?? "").trim()) &&
+    !isSwapOverview &&
     !overviewTransferLayout;
 
   const contractMethodPhrase = isContractCallOverview
@@ -235,6 +259,21 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
         data.functionSelector,
       )
     : undefined;
+
+  const swapView = useMemo(() => {
+    const swap = data.swap;
+    if (!swap) return null;
+    const toView = (t: SwapTokenItem) => ({
+      amount: formatAmount(t.rawAmount, t.decimals),
+      symbol: t.symbol,
+      imageUrl: t.image ?? null,
+    });
+    return {
+      from: toView(swap.fromToken),
+      to: toView(swap.toToken),
+      dexName: swap.dexName,
+    };
+  }, [data.swap]);
 
   const overviewToIdentityText = useMemo(() => {
     if (!isContractCallOverview || !toAddress?.trim()) return toProfileView.identityText;
@@ -299,7 +338,13 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
         </header>
 
         <OverviewCard
-          variant={isContractCallOverview ? "contract_call" : "token_transfer"}
+          variant={
+            isSwapOverview
+              ? "swap"
+              : isContractCallOverview
+                ? "contract_call"
+                : "token_transfer"
+          }
           methodPhrase={contractMethodPhrase}
           usdValue={usdValue}
           amount={amount}
@@ -308,6 +353,12 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           blockTimestamp={block.timestamp as string | undefined}
           chainName={
             isContractCallOverview ? getChainDisplayName(chain) : undefined
+          }
+          dexName={isSwapOverview ? swapView?.dexName ?? null : null}
+          swap={
+            isSwapOverview && swapView
+              ? { from: swapView.from, to: swapView.to }
+              : null
           }
           fromIdentityText={fromProfileView.identityText}
           fromAvatarUrl={fromProfileView.avatarUrl}

@@ -63,6 +63,124 @@ type TokenInfoItem = {
   image?: string;
 };
 
+type SwapTokenItem = {
+  /** `true` 表示原生币（ETH/BNB），此时 `contractAddress` 为 null。 */
+  isNative: boolean;
+  contractAddress: string | null;
+  symbol: string;
+  /** 字符串小数位，便于前端按原有 `formatAmount` 复用。 */
+  decimals: string;
+  /** 原始整数（未除以 10^decimals）。 */
+  rawAmount: string;
+  tokenName?: string | null;
+  image?: string | null;
+};
+
+type SwapInfo = {
+  /** 已识别的 DEX/聚合器名称；未识别时为 null（UI 不展示 `on …`）。 */
+  dexName: string | null;
+  /** 用户调用的 router 合约地址（小写）。 */
+  routerAddress: string;
+  fromToken: SwapTokenItem;
+  toToken: SwapTokenItem;
+};
+
+const NATIVE_SYMBOL_BY_CHAIN: Record<string, string> = {
+  eth: "ETH",
+  base: "ETH",
+  arb: "ETH",
+  op: "ETH",
+  bsc: "BNB",
+};
+
+const NATIVE_LOGO_BY_CHAIN: Record<string, string> = {
+  eth: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+  base: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+  arb: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+  op: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+  bsc: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png",
+};
+
+/**
+ * 常见 DEX / 聚合器的 router 合约（地址小写 → 显示名）。
+ * 多数 router 在多链使用相同地址（CREATE2 预留），按地址即可识别；少数链特定地址逐条列出。
+ */
+const DEX_ROUTERS_LOWER: Record<string, string> = {
+  // Uniswap
+  "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45": "Uniswap",
+  "0x66a9893cc07d91d95644aedd05d03f95e1dba8af": "Uniswap",
+  "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad": "Uniswap",
+  "0xe592427a0aece92de3edee1f18e0157c05861564": "Uniswap V3",
+  "0x7a250d5630b4cf539739df2c5dacb4c659f2488d": "Uniswap V2",
+  "0x2626664c2603336e57b271c5c0b26f421741e481": "Uniswap",
+  "0x6ff5693b99212da76ad316178a184ab56d299b43": "Uniswap",
+  "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24": "Uniswap V2",
+  // 1inch
+  "0x111111125421ca6dc452d289314280a0f8842a65": "1inch",
+  "0x1111111254eeb25477b68fb85ed929f73a960582": "1inch",
+  "0x1111111254fb6c44bac0bed2854e76f90643097d": "1inch",
+  // 0x / Matcha
+  "0xdef1c0ded9bec7f1a1670819833240f027b25eff": "0x",
+  "0x0000000000001ff3684f28c67538d4d072c22734": "0x",
+  // Paraswap
+  "0xdef171fe48cf0115b1d80b88dc8eab59176fee57": "ParaSwap",
+  // KyberSwap
+  "0x6131b5fae19ea4f9d964eac0408e4408b66337b5": "KyberSwap",
+  // CoW Swap
+  "0x9008d19f58aabd9ed0d60971565aa8510560ab41": "CoW Swap",
+  // PancakeSwap
+  "0x10ed43c718714eb63d5aa57b78b54704e256024e": "PancakeSwap",
+  "0x13f4ea83d0bd40e75c8222255bc855a974568dd4": "PancakeSwap",
+  "0x1b81d678ffb9c0263b24a97847620c99d213eb14": "PancakeSwap",
+  "0x1a0a18ac4becddbd6389559687d1a73d8927e416": "PancakeSwap",
+  // SushiSwap
+  "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f": "SushiSwap",
+  // Aerodrome (Base)
+  "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43": "Aerodrome",
+  // Velodrome (Optimism)
+  "0xa062ae8a9c5e11aaa026fc2670b0d65ccc8b2858": "Velodrome",
+  // OpenOcean
+  "0x6352a56caadc4f1e25cd6c75970fa768a3304e64": "OpenOcean",
+  // Odos
+  "0xcf5540fffcdc3d510b18bfca6d2b9987b0772559": "Odos",
+};
+
+/**
+ * 在 receipt logs 里识别 DEX：通过特征 `Swap` 事件 topic0。
+ * V2 / V3 fork 共享 topic，按链推断展示名（bsc → PancakeSwap，其余 → Uniswap）。
+ */
+const DEX_SWAP_TOPIC0_V3 =
+  "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67";
+const DEX_SWAP_TOPIC0_V2 =
+  "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822";
+const DEX_SWAP_TOPIC0_V4 =
+  "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f";
+
+function detectDexFromLogs(
+  receipt: JsonRecord | null | undefined,
+  chain: string,
+): string | null {
+  const logs = receipt?.logs;
+  if (!Array.isArray(logs)) return null;
+  let v: "V4" | "V3" | "V2" | null = null;
+  for (const raw of logs) {
+    const log = raw as { topics?: unknown[] };
+    const topics = log.topics;
+    if (!Array.isArray(topics) || topics.length === 0) continue;
+    const t0 = String(topics[0]).toLowerCase();
+    if (t0 === DEX_SWAP_TOPIC0_V4) {
+      v = "V4";
+      break;
+    }
+    if (t0 === DEX_SWAP_TOPIC0_V3) v ??= "V3";
+    else if (t0 === DEX_SWAP_TOPIC0_V2) v ??= "V2";
+  }
+  if (!v) return null;
+  const isBsc = normalizeChain(chain) === "bsc";
+  const brand = isBsc ? "PancakeSwap" : "Uniswap";
+  return `${brand} ${v}`;
+}
+
 function tokenUsdLooksValid(value: unknown): boolean {
   if (value == null) return false;
   const s = String(value).replace(/,/g, "").replace(/^\$\s*/, "").trim();
@@ -516,6 +634,268 @@ async function resolveTokenInfoFromCoingecko(
   return { tokenInfo: null, contractAddress: contracts[0] ?? null };
 }
 
+/** 按 ERC-20 合约聚合 user 的净流入：to=user → +value，from=user → -value。 */
+function aggregateUserNetByToken(
+  transfers: Erc20TransferItem[],
+  userLower: string,
+): Map<string, bigint> {
+  const map = new Map<string, bigint>();
+  for (const t of transfers) {
+    const c = normalizeAddress(t.contractAddress);
+    if (!c) continue;
+    let v: bigint;
+    try {
+      v = BigInt(String(t.value ?? "0"));
+    } catch {
+      continue;
+    }
+    const fromL = normalizeAddress(t.from);
+    const toL = normalizeAddress(t.to);
+    const cur = map.get(c) ?? BigInt(0);
+    if (toL === userLower && fromL !== userLower) {
+      map.set(c, cur + v);
+    } else if (fromL === userLower && toL !== userLower) {
+      map.set(c, cur - v);
+    }
+  }
+  return map;
+}
+
+function findTransferMetaForContract(
+  transfers: Erc20TransferItem[],
+  contractLower: string,
+): Erc20TransferItem | null {
+  return (
+    transfers.find(
+      (t) => normalizeAddress(t.contractAddress) === contractLower,
+    ) ?? null
+  );
+}
+
+async function buildSwapTokenItem(
+  chain: string,
+  contractLower: string | null,
+  rawAmount: bigint,
+  hint: {
+    transfers: Erc20TransferItem[];
+    tokenInfo: TokenInfoItem | null;
+    tokenInfoContract: string | null;
+  },
+): Promise<SwapTokenItem | null> {
+  if (!contractLower) {
+    const c = normalizeChain(chain);
+    return {
+      isNative: true,
+      contractAddress: null,
+      symbol: NATIVE_SYMBOL_BY_CHAIN[c] ?? "ETH",
+      decimals: "18",
+      rawAmount: rawAmount.toString(),
+      image: NATIVE_LOGO_BY_CHAIN[c] ?? null,
+    };
+  }
+
+  const meta = findTransferMetaForContract(hint.transfers, contractLower);
+  const matchInfo =
+    hint.tokenInfo &&
+    normalizeAddress(
+      hint.tokenInfo.contractAddress ?? hint.tokenInfoContract ?? "",
+    ) === contractLower
+      ? hint.tokenInfo
+      : null;
+
+  const symbolHint = matchInfo?.symbol?.trim() || meta?.tokenSymbol?.trim();
+  const decimalsHintRaw =
+    matchInfo?.divisor?.trim() || meta?.tokenDecimal?.trim();
+  const decimalsHintN = decimalsHintRaw
+    ? Number.parseInt(decimalsHintRaw, 10)
+    : Number.NaN;
+  const hasUsableDecimals = Number.isFinite(decimalsHintN) && decimalsHintN >= 0;
+  const imageHint = matchInfo?.image?.trim() || null;
+
+  /** 即使 symbol / decimals 已能从 tokentx 元数据取得，仍在缺 logo 时拉一次 CoinGecko，确保两侧 token 都有图。 */
+  let extra: TokenInfoItem | null = null;
+  if (!symbolHint || !hasUsableDecimals || !imageHint) {
+    extra = await fetchCoingeckoTokenContractFull(chain, contractLower);
+  }
+
+  return {
+    isNative: false,
+    contractAddress: contractLower,
+    symbol: symbolHint || extra?.symbol || "TOKEN",
+    decimals: hasUsableDecimals
+      ? String(decimalsHintN)
+      : (extra?.divisor ?? "18"),
+    rawAmount: rawAmount.toString(),
+    tokenName:
+      matchInfo?.tokenName ?? meta?.tokenName ?? extra?.tokenName ?? null,
+    image: imageHint || extra?.image || null,
+  };
+}
+
+type InternalTxItem = {
+  from?: string;
+  to?: string;
+  value?: string;
+  isError?: string;
+};
+
+/** Etherscan v2 单笔 internal txs；仅用于聚合 user 净流入/流出 native（不展示每条）。 */
+async function fetchInternalNativeNetForUser(
+  chainId: string,
+  apiKey: string,
+  hash: string,
+  userLower: string,
+): Promise<bigint> {
+  try {
+    const result = await fetchEtherscanV2<InternalTxItem[] | string>(
+      chainId,
+      apiKey,
+      "account",
+      "txlistinternal",
+      { txhash: hash },
+    );
+    if (!Array.isArray(result)) return BigInt(0);
+    let net = BigInt(0);
+    for (const item of result) {
+      if (item.isError === "1") continue;
+      let v: bigint;
+      try {
+        v = BigInt(String(item.value ?? "0"));
+      } catch {
+        continue;
+      }
+      if (v === BigInt(0)) continue;
+      const fromL = normalizeAddress(item.from);
+      const toL = normalizeAddress(item.to);
+      if (toL === userLower && fromL !== userLower) net += v;
+      else if (fromL === userLower && toL !== userLower) net -= v;
+    }
+    return net;
+  } catch {
+    return BigInt(0);
+  }
+}
+
+/**
+ * 仅在交易成功 + 合约调用 时执行；基于 ERC-20 net flow + tx.value 识别 swap。
+ * 支持：ERC-20 ↔ ERC-20、native → ERC-20、ERC-20 → native（后者需一次 `txlistinternal` 仅做聚合）。
+ */
+async function detectSwap(
+  chain: string,
+  chainId: string,
+  apiKey: string,
+  hash: string,
+  transaction: JsonRecord,
+  receipt: JsonRecord | null | undefined,
+  txStatus: string,
+  transfers: Erc20TransferItem[],
+  knownTokenInfo: TokenInfoItem | null,
+  knownTokenInfoContract: string | null,
+): Promise<SwapInfo | null> {
+  if (txStatus !== "success") return null;
+
+  const userLower = normalizeAddress(transaction.from as string | undefined);
+  if (!userLower) return null;
+  const routerLower = normalizeAddress(transaction.to as string | undefined);
+  if (!routerLower) return null;
+
+  /**
+   * Gating：只有 router 是已知 DEX / 聚合器，或 logs 中包含 Uniswap V2/V3/V4（含其 fork）`Swap` 事件
+   * 时才识别为 swap。否则把 lending / staking / LP 这类「出一个 token 拿一个 receipt token」的合约调用
+   * 误判为 swap。
+   */
+  const knownDexRouter = DEX_ROUTERS_LOWER[routerLower] ?? null;
+  const dexFromLogs = detectDexFromLogs(receipt, chain);
+  if (!knownDexRouter && !dexFromLogs) return null;
+
+  let nativeOutWei = BigInt(0);
+  try {
+    const v = String(transaction.value ?? "0x0");
+    if (v && v !== "0x" && v !== "0x0") nativeOutWei = BigInt(v);
+  } catch {
+    nativeOutWei = BigInt(0);
+  }
+
+  /**
+   * 当 `tx.from`（user EOA）完全不在 ERC-20 transfers 里时，认为 token 流被 `tx.to`（代理 / MEV bot
+   * / 智能账户）代为持有，按它的视角重算 net flow。普通 user 直接调 router 的 swap 不会触发这条 fallback。
+   */
+  const userInvolvedInTransfers = transfers.some((t) => {
+    const f = normalizeAddress(t.from);
+    const to = normalizeAddress(t.to);
+    return f === userLower || to === userLower;
+  });
+  const effectiveUser =
+    !userInvolvedInTransfers && routerLower !== userLower
+      ? routerLower
+      : userLower;
+
+  const netByToken = aggregateUserNetByToken(transfers, effectiveUser);
+
+  let bestIn: { contract: string; amount: bigint } | null = null;
+  let bestOut: { contract: string; amount: bigint } | null = null;
+  for (const [c, v] of netByToken) {
+    if (v > BigInt(0)) {
+      if (!bestIn || v > bestIn.amount) bestIn = { contract: c, amount: v };
+    } else if (v < BigInt(0)) {
+      const abs = -v;
+      const curAbs = bestOut ? -bestOut.amount : BigInt(0);
+      if (!bestOut || abs > curAbs) bestOut = { contract: c, amount: v };
+    }
+  }
+
+  let outContract: string | null;
+  let outRaw: bigint;
+  if (bestOut) {
+    outContract = bestOut.contract;
+    outRaw = -bestOut.amount;
+  } else if (nativeOutWei > BigInt(0)) {
+    outContract = null;
+    outRaw = nativeOutWei;
+  } else {
+    return null;
+  }
+
+  let inContract: string | null;
+  let inRaw: bigint;
+  if (bestIn) {
+    inContract = bestIn.contract;
+    inRaw = bestIn.amount;
+  } else if (outContract) {
+    /** ERC-20 → native：拉 internal txs 看 user 净收到多少原生币 */
+    const nativeIn = await fetchInternalNativeNetForUser(
+      chainId,
+      apiKey,
+      hash,
+      effectiveUser,
+    );
+    if (nativeIn <= BigInt(0)) return null;
+    inContract = null;
+    inRaw = nativeIn;
+  } else {
+    return null;
+  }
+
+  if (outContract && inContract && outContract === inContract) return null;
+  if (!outContract && !inContract) return null;
+
+  const hint = {
+    transfers,
+    tokenInfo: knownTokenInfo,
+    tokenInfoContract: knownTokenInfoContract,
+  };
+  const fromToken = await buildSwapTokenItem(chain, outContract, outRaw, hint);
+  const toToken = await buildSwapTokenItem(chain, inContract, inRaw, hint);
+  if (!fromToken || !toToken) return null;
+
+  return {
+    dexName: knownDexRouter ?? dexFromLogs,
+    routerAddress: routerLower,
+    fromToken,
+    toToken,
+  };
+}
+
 async function resolveFunctionName(functionSelector: string) {
   const response = await fetch(
     `https://www.4byte.directory/api/v1/signatures/?hex_signature=${encodeURIComponent(
@@ -700,6 +1080,25 @@ export async function GET(
         cgNative ?? (await fetchEtherscanNativeUsd(chainId, apiKey));
     }
 
+    const txStatus = mapTxStatus(
+      (receipt?.status as string | undefined) ?? undefined,
+    );
+    const swap =
+      externalType === "contract_call"
+        ? await detectSwap(
+            chain,
+            chainId,
+            apiKey,
+            hash,
+            transaction,
+            receipt,
+            txStatus,
+            erc20Transfers,
+            tokenInfo,
+            tokenInfoContractAddress,
+          )
+        : null;
+
     const sanitizedReceipt = receipt
       ? Object.fromEntries(
           Object.entries(receipt).filter(([key]) => key !== "logs"),
@@ -718,9 +1117,7 @@ export async function GET(
       chainId,
       hash,
       type: externalType,
-      txStatus: mapTxStatus(
-        (receipt?.status as string | undefined) ?? undefined,
-      ),
+      txStatus,
       functionName,
       functionSelector,
       contractAddress,
@@ -735,6 +1132,7 @@ export async function GET(
       tokenInfoContractAddress,
       calledContract,
       ethUsd,
+      swap,
       from: fromProfile,
       to: toProfile,
     });

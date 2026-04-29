@@ -5,7 +5,13 @@ import { formatBlockTimestampRelative } from "@/utils/format-block-relative";
 import { formatTokenAmountTwoDecimals } from "@/utils/utils";
 import styles from "@/styles/overview-card.module.css";
 
-type OverviewVariant = "contract_call" | "token_transfer";
+type OverviewVariant = "contract_call" | "token_transfer" | "swap";
+
+export type SwapTokenView = {
+  amount: string;
+  symbol: string;
+  imageUrl?: string | null;
+};
 
 export type OverviewCardProps = {
   variant: OverviewVariant;
@@ -22,6 +28,10 @@ export type OverviewCardProps = {
   toAvatarUrl?: string | null;
   /** 仅 `contract_call`：链展示名。 */
   chainName?: string;
+  /** 仅 `swap`：DEX/聚合器展示名（未识别时为 null/空）。 */
+  dexName?: string | null;
+  /** 仅 `swap`：双侧 token 视图。 */
+  swap?: { from: SwapTokenView; to: SwapTokenView } | null;
 };
 
 function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null }) {
@@ -122,6 +132,25 @@ function UsdPriceRow({ value }: { value: string }) {
   );
 }
 
+function SwapTokenInline({ token }: { token: SwapTokenView }) {
+  return (
+    <span className={styles.amount}>
+      {token.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className={styles.tokenIcon}
+          src={token.imageUrl}
+          alt=""
+          width={16}
+          height={16}
+        />
+      ) : null}
+      <strong>{formatTokenAmountTwoDecimals(token.amount)}</strong>
+      <span className={styles.symbol}>{token.symbol}</span>
+    </span>
+  );
+}
+
 export default function OverviewCard({
   variant,
   methodPhrase,
@@ -135,6 +164,8 @@ export default function OverviewCard({
   toIdentityText,
   toAvatarUrl,
   chainName,
+  dexName,
+  swap,
 }: OverviewCardProps) {
   const relativeTime = useMemo(
     () => formatBlockTimestampRelative(blockTimestamp),
@@ -148,7 +179,29 @@ export default function OverviewCard({
   const title = (methodPhrase ?? "").trim() || "Contract";
 
   const flow =
-    variant === "contract_call" ? (
+    variant === "swap" && swap ? (
+      <>
+        <p className={`${styles.line} ${styles.lineMain}`}>
+          <span className={styles.verb}>swap</span>
+          <SwapTokenInline token={swap.from} />
+          <span className={styles.preposition} aria-hidden>
+            →
+          </span>
+          <SwapTokenInline token={swap.to} />
+        </p>
+        <p className={`${styles.line} ${styles.lineSub}`}>
+          <span className={styles.preposition}>by</span>
+          <IdentityInline label={fromIdentityText} avatarUrl={fromAvatarUrl} />
+          {dexName?.trim() ? (
+            <>
+              <span className={styles.preposition}>on</span>
+              <span className={styles.chain}>{dexName}</span>
+            </>
+          ) : null}
+          <span className={styles.time}>{relativeTime}</span>
+        </p>
+      </>
+    ) : variant === "contract_call" ? (
       <>
         <p className={`${styles.line} ${styles.lineMain}`}>
           <span className={styles.verb}>call</span>

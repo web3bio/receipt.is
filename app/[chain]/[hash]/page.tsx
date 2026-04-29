@@ -36,6 +36,7 @@ type TxApiResponse = {
   tokenInfoContractAddress?: TxReceiptData["tokenInfoContractAddress"];
   calledContract?: TxReceiptData["calledContract"];
   ethUsd?: TxReceiptData["ethUsd"];
+  swap?: TxReceiptData["swap"];
   [key: string]: unknown;
 };
 
@@ -118,6 +119,7 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
         tokenInfoContractAddress: data.tokenInfoContractAddress ?? null,
         calledContract: data.calledContract ?? null,
         ethUsd: data.ethUsd ?? null,
+        swap: data.swap ?? null,
       }}
     />
   );
