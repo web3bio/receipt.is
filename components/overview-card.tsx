@@ -31,15 +31,20 @@ export type OverviewCardProps = {
 
 function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null }) {
   const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
-  return (
-    <span className="receipt-avatar" aria-hidden>
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+  if (avatarUrl) {
+    return (
+      <span className="avatar avatar-xs receipt-avatar-inline" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatarUrl} alt={label} />
-      ) : (
-        text
-      )}
-    </span>
+      </span>
+    );
+  }
+  return (
+    <span
+      className="avatar avatar-xs receipt-avatar-inline"
+      aria-hidden
+      data-initial={text}
+    />
   );
 }
 
@@ -131,14 +136,15 @@ function SwapTokenInline({ token }: { token: SwapTokenView }) {
   return (
     <span className="receipt-overview-amount">
       {token.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          className="receipt-token-icon"
-          src={token.imageUrl}
-          alt=""
-          width={16}
-          height={16}
-        />
+        <span className="avatar avatar-xs receipt-token-strip">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={token.imageUrl}
+            alt=""
+            width={16}
+            height={16}
+          />
+        </span>
       ) : null}
       <strong>{formatTokenAmountTwoDecimals(token.amount)}</strong>
       <span className="receipt-overview-symbol">{token.symbol}</span>
@@ -201,7 +207,9 @@ export default function OverviewCard({
         <p className="receipt-overview-line receipt-overview-line--main">
           <span className="receipt-overview-verb">call</span>
           <span className="receipt-overview-method">{title}</span>
-          <span className="receipt-overview-method-badge">Function</span>
+          <span className="label label-rounded receipt-overview-method-badge">
+            Function
+          </span>
         </p>
         <p className="receipt-overview-line receipt-overview-line--sub">
           <span className="receipt-overview-prep">by</span>
@@ -221,14 +229,15 @@ export default function OverviewCard({
           <span className="receipt-overview-verb">sent</span>
           <span className="receipt-overview-amount">
             {tokenLogoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                className="receipt-token-icon"
-                src={tokenLogoUrl}
-                alt=""
-                width={16}
-                height={16}
-              />
+              <span className="avatar avatar-xs receipt-token-strip">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={tokenLogoUrl}
+                  alt=""
+                  width={16}
+                  height={16}
+                />
+              </span>
             ) : null}
             <strong>{displayAmount}</strong>
             <span className="receipt-overview-symbol">{tokenSymbol}</span>

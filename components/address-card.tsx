@@ -58,7 +58,7 @@ function CopyButton({ value }: { value: string }) {
   return (
     <button
       type="button"
-      className="receipt-copy-btn"
+      className="btn btn-sm btn-link receipt-copy-btn"
       onClick={onCopy}
       aria-label={copied ? "Copied" : "Copy address"}
     >
@@ -81,15 +81,20 @@ function Avatar({
   avatarUrl?: string | null;
 }) {
   const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
-  return (
-    <span className="receipt-avatar receipt-avatar--lg" aria-hidden>
-      {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+  if (avatarUrl) {
+    return (
+      <span className="avatar avatar-lg receipt-avatar-squircle" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatarUrl} alt={label} />
-      ) : (
-        text
-      )}
-    </span>
+      </span>
+    );
+  }
+  return (
+    <span
+      className="avatar avatar-lg receipt-avatar-squircle"
+      aria-hidden
+      data-initial={text}
+    />
   );
 }
 

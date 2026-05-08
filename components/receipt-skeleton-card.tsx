@@ -52,7 +52,7 @@ export default function ReceiptSkeletonCard() {
 
       <section className="receipt-flow">
         <AddressSkeleton titleWidth="2rem" />
-        <div className="receipt-flow-arrow" aria-hidden>
+        <div className="btn btn-sm btn-action receipt-flow-arrow" aria-hidden>
           <Image src="/icon-arrow.svg" alt="" width={18} height={18} />
         </div>
         <AddressSkeleton titleWidth="1.6rem" />

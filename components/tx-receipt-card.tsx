@@ -111,7 +111,7 @@ function ShareButton() {
   };
 
   return (
-    <button type="button" className="receipt-action-btn" onClick={onShare}>
+    <button type="button" className="btn btn-sm receipt-action-btn" onClick={onShare}>
       Share
     </button>
   );
@@ -326,7 +326,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
   return (
     <article className="receipt-card">
       <header className="receipt-topbar">
-        <span className={`receipt-status-badge ${getStatusClass(txStatus)}`}>
+        <span className={`label label-rounded ${getStatusClass(txStatus)}`}>
           {statusLabel}
         </span>
         <ShareButton />
@@ -375,7 +375,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           addressValue={fromProfileView.addressValue}
           avatarUrl={fromProfileView.avatarUrl}
         />
-        <div className="receipt-flow-arrow" aria-hidden>
+        <div className="btn btn-sm btn-action receipt-flow-arrow" aria-hidden>
           <Image src="/icon-arrow.svg" alt="" width={18} height={18} />
         </div>
         <AddressCard
@@ -405,7 +405,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
                 )}
               </span>
               <select
-                className="receipt-time-mode"
+                className="form-select select-sm receipt-time-mode"
                 aria-label="Time display mode"
                 value={timeMode}
                 onChange={(e) =>
@@ -428,7 +428,7 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           </li>
         </ul>
         <a
-          className="receipt-action-btn receipt-action-btn--end"
+          className="btn btn-sm receipt-action-btn receipt-action-btn--end"
           href={explorerUrl}
           target="_blank"
           rel="noreferrer"
