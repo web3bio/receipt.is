@@ -1,0 +1,78 @@
+@use "../mixins/text";
+
+// Text
+// Text alignment utilities
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-justify {
+  text-align: justify;
+}
+
+// Text transform utilities
+.text-lowercase {
+  text-transform: lowercase;
+}
+
+.text-uppercase {
+  text-transform: uppercase;
+}
+
+.text-capitalize {
+  text-transform: capitalize;
+}
+
+// Text style utilities
+.text-normal {
+  font-weight: normal !important;
+}
+
+.text-bold {
+  font-weight: 700 !important;
+}
+
+.text-italic {
+  font-style: italic !important;
+}
+
+.text-large {
+  font-size: 1.25em;
+}
+
+.text-small {
+  font-size: 0.85em;
+}
+
+.text-underline {
+  text-decoration: underline !important;
+}
+
+.text-opacity {
+  opacity: 0.5;
+}
+
+// Text overflow utilities
+.text-ellipsis {
+  @include text.text-ellipsis();
+}
+
+.text-clip {
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.text-break {
+  hyphens: auto;
+  word-break: break-word;
+  word-wrap: break-word;
+}

@@ -1,0 +1,22 @@
+@use "../variables";
+
+// Popovers
+.popover {
+  background: variables.$light-color;
+  border-radius: variables.$border-radius-lg;
+  box-shadow: 0 0.4rem 1.6rem rgba(variables.$dark-color, 0.25);
+  color: variables.$dark-color;
+  display: block;
+  max-width: variables.$control-width-sm;
+  padding: variables.$unit-4;
+
+  .popover-list {
+    display: flex;
+    flex-direction: column;
+    gap: variables.$unit-2;
+
+    .popover-list-item {
+      display: flex;
+    }
+  }
+}

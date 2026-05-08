@@ -45,11 +45,9 @@ export const revalidate = 0;
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <section className="receipt-shell">
-      <article className="receipt-card">
-        <p className="receipt-error-text">{message}</p>
-      </article>
-    </section>
+    <article className="receipt-card">
+      <p className="receipt-error">{message}</p>
+    </article>
   );
 }
 
@@ -130,11 +128,9 @@ export default async function TxPage({ params }: PageProps) {
 
   return (
     <main className="receipt-page">
-      <div className="receipt-page-wrap">
-        <Suspense fallback={<ReceiptSkeletonCard />}>
-          <TxContent chain={chain} hash={hash} />
-        </Suspense>
-      </div>
+      <Suspense fallback={<ReceiptSkeletonCard />}>
+        <TxContent chain={chain} hash={hash} />
+      </Suspense>
     </main>
   );
 }

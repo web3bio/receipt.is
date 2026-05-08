@@ -1,0 +1,92 @@
+@use "../variables";
+
+// Menus
+.menu {
+  background: variables.$bg-color-light;
+  border-radius: variables.$border-radius;
+  box-shadow:
+    0 0.05rem 0.1rem hsl(0deg 0% 0% / 0.075),
+    0 0.1rem 0.2rem hsl(0deg 0% 0% / 0.075),
+    0 0.2rem 0.8rem hsl(0deg 0% 0% / 0.075),
+    0 0.4rem 1.6rem hsl(0deg 0% 0% / 0.075);
+  color: variables.$dark-color;
+  flex-direction: column;
+  font-size: 0.7rem;
+  gap: variables.$unit-1;
+  list-style: none;
+  margin: 0;
+  min-width: variables.$control-width-xs;
+  padding: variables.$unit-2;
+  transform: translateY(0);
+  z-index: variables.$zindex-3;
+
+  &.menu-nav {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .divider {
+    margin: 0.2rem 0;
+  }
+
+  .menu-item {
+    display: flex;
+    margin-top: 0;
+    padding: 0 variables.$unit-4;
+    text-decoration: none;
+    user-select: none;
+
+    & > a {
+      align-items: center;
+      border-radius: variables.$border-radius;
+      color: inherit;
+      display: flex;
+      flex: 1 1 auto;
+      margin: 0 (-(variables.$unit-4));
+      padding: variables.$unit-1 variables.$unit-2;
+      text-decoration: none;
+      width: 100%;
+
+      &:focus,
+      &:hover {
+        background: rgba($color: variables.$dark-color, $alpha: 0.05);
+        color: variables.$primary-color;
+      }
+
+      &:active,
+      &.active {
+        background: rgba($color: variables.$dark-color, $alpha: 0.075);
+        color: variables.$primary-color;
+      }
+    }
+
+    & > div {
+      align-items: center;
+      border-radius: variables.$border-radius;
+      color: inherit;
+      display: flex;
+      margin: 0 (-(variables.$unit-4));
+      padding: variables.$unit-2;
+    }
+
+    .icon {
+      height: 1rem;
+      width: 1rem;
+    }
+
+    .form-checkbox,
+    .form-radio,
+    .form-switch {
+      margin: variables.$unit-h 0;
+    }
+  }
+
+  .menu-badge {
+    float: right;
+    padding: variables.$unit-1 0;
+
+    .btn {
+      margin-top: -(variables.$unit-h);
+    }
+  }
+}

@@ -1,0 +1,10 @@
+@use "../../variables";
+
+// Shapes
+.s-rounded {
+  border-radius: variables.$border-radius !important;
+}
+
+.s-circle {
+  border-radius: 50% !important;
+}

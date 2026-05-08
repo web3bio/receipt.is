@@ -1,0 +1,17 @@
+@use "sass:color";
+@use "../../variables";
+
+// Label base style
+@mixin label-base() {
+  align-items: center;
+  border-radius: variables.$border-radius;
+  display: inline-flex;
+  height: fit-content;
+  line-height: 1.25;
+  padding: 0.15rem 0.25rem;
+}
+
+@mixin label-variant($color: variables.$light-color, $bg-color: variables.$primary-color) {
+  background: color.adjust($bg-color, $lightness: 6%);
+  color: $color;
+}

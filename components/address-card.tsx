@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { formatText } from "@/utils/utils";
-import styles from "@/styles/address-card.module.css";
 
 type AddressCardProps = {
   title: string;
@@ -59,7 +58,7 @@ function CopyButton({ value }: { value: string }) {
   return (
     <button
       type="button"
-      className={styles.copyButton}
+      className="receipt-copy-btn"
       onClick={onCopy}
       aria-label={copied ? "Copied" : "Copy address"}
     >
@@ -83,10 +82,10 @@ function Avatar({
 }) {
   const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
   return (
-    <span className={styles.avatar} aria-hidden>
+    <span className="receipt-avatar receipt-avatar--lg" aria-hidden>
       {avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className={styles.avatarImage} src={avatarUrl} alt={label} />
+        <img src={avatarUrl} alt={label} />
       ) : (
         text
       )}
@@ -104,23 +103,23 @@ export default function AddressCard({
   const addressDisplay = splitAddressSegments(addressValue || addressLabel);
 
   return (
-    <section className={styles.card}>
-      <p className={styles.title}>{title}</p>
-      <div className={styles.row}>
+    <section className="receipt-address">
+      <p className="receipt-address-title">{title}</p>
+      <div className="receipt-address-row">
         <Avatar label={addressLabel ?? "na"} avatarUrl={avatarUrl} />
-        <div className={styles.content}>
-          <p className={styles.name}>
+        <div className="receipt-address-body">
+          <p className="receipt-address-name">
             {displayLabel || formatText(addressLabel ?? "", 14)}
           </p>
-          <p className={styles.address}>
-            <span className={styles.addressEdge}>{addressDisplay.prefix}</span>
+          <p className="receipt-address-text">
+            <span className="receipt-address-edge">{addressDisplay.prefix}</span>
             {addressDisplay.middle ? (
-              <span className={styles.addressMiddle}>
+              <span className="receipt-address-mid">
                 {addressDisplay.middle}
               </span>
             ) : null}
             {addressDisplay.suffix ? (
-              <span className={styles.addressEdge}>
+              <span className="receipt-address-edge">
                 {addressDisplay.suffix}
               </span>
             ) : null}

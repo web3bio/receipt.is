@@ -1,0 +1,92 @@
+@use "../variables";
+
+// Chips
+.chip {
+  align-items: center;
+  border: 0.05rem solid transparent;
+  border-radius: 0.4rem;
+  display: inline-flex;
+  font-size: 90%;
+  gap: variables.$unit-2;
+  line-height: variables.$unit-4;
+  padding: variables.$unit-2;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+
+  &.chip-full {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  &.active {
+    background: variables.$primary-color;
+    color: variables.$light-color;
+  }
+
+  .chip-icon {
+    height: 1.6rem;
+    position: relative;
+    width: 1.6rem;
+
+    .chip-status {
+      align-items: center;
+      background: variables.$bg-color;
+      border-radius: 50%;
+      bottom: -0.2rem;
+      box-shadow:
+        0 0.1rem 0.4rem -0.4rem rgba(variables.$dark-color, 0.25),
+        0 0.1rem 0.2rem rgba(variables.$dark-color, 0.05),
+        0 0 0 0.1rem variables.$bg-color;
+      display: flex;
+      flex: 0 0;
+      height: 0.9rem;
+      padding: 0.15rem;
+      position: absolute;
+      right: -0.4rem;
+      width: 0.9rem;
+    }
+
+    .avatar {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+    }
+  }
+
+  .chip-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.2rem;
+    line-height: 1;
+    padding-right: 0.5rem;
+  }
+
+  .chip-title {
+    display: flex;
+    font-size: 0.65rem;
+    font-weight: 500;
+    width: 100%;
+  }
+
+  .chip-subtitle {
+    display: flex;
+    font-size: 0.6rem;
+    width: 100%;
+  }
+
+  .btn-clear {
+    border-radius: 50%;
+    transform: scale(0.75);
+  }
+
+  .chip-actions {
+    align-items: center;
+    display: flex;
+    flex: 0 0;
+    gap: 0.2rem;
+    height: 1.6rem;
+  }
+}

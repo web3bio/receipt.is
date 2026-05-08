@@ -1,0 +1,58 @@
+@use "sass:color";
+@use "../../variables";
+@use "shadow";
+
+// Button variant mixin
+@mixin button-variant($color: variables.$primary-color) {
+  background: $color;
+  border-color: color.adjust($color, $lightness: -3%);
+  color: variables.$light-color;
+  &:focus {
+    @include shadow.control-shadow($color);
+  }
+  &:focus,
+  &:hover {
+    background: color.adjust($color, $lightness: -2%);
+    border-color: color.adjust($color, $lightness: -5%);
+    color: variables.$light-color;
+  }
+  &:active,
+  &.active {
+    background: color.adjust($color, $lightness: -7%);
+    border-color: color.adjust($color, $lightness: -10%);
+    color: variables.$light-color;
+  }
+  &.loading {
+    &::after {
+      border-bottom-color: variables.$light-color;
+      border-left-color: variables.$light-color;
+    }
+  }
+}
+
+@mixin button-outline-variant($color: variables.$primary-color) {
+  background: variables.$light-color;
+  border-color: $color;
+  color: $color;
+  &:focus {
+    @include shadow.control-shadow($color);
+  }
+  &:focus,
+  &:hover {
+    background: color.adjust($color, $lightness: 50%);
+    border-color: color.adjust($color, $lightness: -2%);
+    color: $color;
+  }
+  &:active,
+  &.active {
+    background: $color;
+    border-color: color.adjust($color, $lightness: -5%);
+    color: variables.$light-color;
+  }
+  &.loading {
+    &::after {
+      border-bottom-color: $color;
+      border-left-color: $color;
+    }
+  }
+}

@@ -1,0 +1,46 @@
+@use "../variables";
+
+// Dropdown
+.dropdown {
+  display: flex;
+  position: relative;
+
+  .menu {
+    animation: slide-down 0.2s ease 1;
+    display: none;
+    left: 0;
+    max-height: 50vh;
+    overflow-y: auto;
+    position: absolute;
+    top: 100%;
+  }
+
+  &.dropdown-right {
+    .menu {
+      left: auto;
+      right: 0;
+    }
+  }
+
+  &.dropdown-top {
+    .menu {
+      animation: slide-up 0.2s ease 1;
+      bottom: 120%;
+      top: auto;
+    }
+  }
+
+  &.active .menu,
+  .dropdown-toggle:focus + .menu,
+  .menu:hover {
+    display: flex;
+  }
+
+  // Fix dropdown-toggle border radius in button groups
+  &.btn-group {
+    .dropdown-toggle:nth-last-child(2) {
+      border-bottom-right-radius: variables.$border-radius;
+      border-top-right-radius: variables.$border-radius;
+    }
+  }
+}

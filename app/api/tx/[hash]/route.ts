@@ -64,22 +64,22 @@ type TokenInfoItem = {
 };
 
 type SwapTokenItem = {
-  /** `true` 表示原生币（ETH/BNB），此时 `contractAddress` 为 null。 */
+  /** When true, native coin (ETH/BNB); `contractAddress` is null. */
   isNative: boolean;
   contractAddress: string | null;
   symbol: string;
-  /** 字符串小数位，便于前端按原有 `formatAmount` 复用。 */
+  /** Decimal places as string for `formatAmount`. */
   decimals: string;
-  /** 原始整数（未除以 10^decimals）。 */
+  /** Raw integer wei, not divided by 10^decimals. */
   rawAmount: string;
   tokenName?: string | null;
   image?: string | null;
 };
 
 type SwapInfo = {
-  /** 已识别的 DEX/聚合器名称；未识别时为 null（UI 不展示 `on …`）。 */
+  /** Resolved DEX name, or null if unknown (UI skips `on …`). */
   dexName: string | null;
-  /** 用户调用的 router 合约地址（小写）。 */
+  /** User-called router address (lowercase). */
   routerAddress: string;
   fromToken: SwapTokenItem;
   toToken: SwapTokenItem;
@@ -102,8 +102,8 @@ const NATIVE_LOGO_BY_CHAIN: Record<string, string> = {
 };
 
 /**
- * 常见 DEX / 聚合器的 router 合约（地址小写 → 显示名）。
- * 多数 router 在多链使用相同地址（CREATE2 预留），按地址即可识别；少数链特定地址逐条列出。
+ * Known DEX / aggregator router contracts (lowercase address → label).
+ * Many share the same address across chains (CREATE2); list chain-specific outliers explicitly.
  */
 const DEX_ROUTERS_LOWER: Record<string, string> = {
   // Uniswap
@@ -147,9 +147,8 @@ const DEX_ROUTERS_LOWER: Record<string, string> = {
 };
 
 /**
- * 在 receipt logs 里按特征 `Swap` 事件识别 DEX 版本 / 品牌。
- * V2 / V3 fork 共享 topic（Uniswap / Sushi / Pancake V2、Uniswap V3 / Sushi V3）；
- * PancakeSwap V3 因事件多 2 个 `protocolFees*` 参数 topic0 不同，可精确识别为 PancakeSwap。
+ * Classify Swap-style logs into DEX family / version by topic0.
+ * V2/V3 forks often share topics (Uniswap, Sushi, Pancake); Pancake V3 differs via extra protocolFees topics.
  */
 type DexSwapHit = { brand?: string; version: "V2" | "V3" | "V4" };
 
@@ -204,7 +203,7 @@ function tokenUsdLooksValid(value: unknown): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
-/** ERC-20 `Transfer(address,address,uint256)` — `uint256` 在 data 里 → 共 3 个 topic（与 ERC-721 四 topic 区分）。 */
+/** ERC-20 `Transfer(address,address,uint256)` — amount in data, 3 indexed topics (vs 4-topic ERC-721 transfers). */
 const ERC20_TRANSFER_TOPIC0 =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
@@ -430,7 +429,7 @@ function coingeckoFetchHeaders(): Record<string, string> {
   return headers;
 }
 
-/** 免费公共 `simple/token_price`；可选 `COINGECKO_API_KEY`（Demo）提高限流。 */
+/** CoinGecko public `simple/token_price`; optional `COINGECKO_API_KEY` (Demo tier) lifts rate limits. */
 async function tryCoingeckoTokenUsd(
   chain: string,
   contractLower: string,
@@ -463,8 +462,8 @@ async function tryCoingeckoTokenUsd(
 }
 
 /**
- * CoinGecko `/coins/{platform}/contract/{address}`：tokenInfo 唯一来源（名称、符号、小数、图、参考价）。
- * 无 `market_data` 时仍可返回元数据；USD 可再由 `tryCoingeckoTokenUsd` 补齐。
+ * CoinGecko `/coins/{platform}/contract/{address}` — canonical token metadata + optional USD price.
+ * Metadata applies without `market_data`; USD can be filled via `tryCoingeckoTokenUsd`.
  */
 async function fetchCoingeckoTokenContractFull(
   chain: string,
@@ -528,7 +527,7 @@ async function fetchCoingeckoTokenContractFull(
   }
 }
 
-/** 原生币 USD：`ethereum` / `binancecoin`（免费 `simple/price`）。 */
+/** Native USD via CoinGecko `simple/price`: `ethereum` or `binancecoin`. */
 async function tryCoingeckoNativeUsd(chain: string): Promise<string | null> {
   const cgId = normalizeChain(chain) === "bsc" ? "binancecoin" : "ethereum";
   try {
@@ -649,7 +648,7 @@ async function resolveTokenInfoFromCoingecko(
   return { tokenInfo: null, contractAddress: contracts[0] ?? null };
 }
 
-/** 按 ERC-20 合约聚合 user 的净流入：to=user → +value，from=user → -value。 */
+/** Net ERC-20 flow per token for user: credited on transfer to user, debited when user sends out. */
 function aggregateUserNetByToken(
   transfers: Erc20TransferItem[],
   userLower: string,
@@ -727,7 +726,7 @@ async function buildSwapTokenItem(
   const hasUsableDecimals = Number.isFinite(decimalsHintN) && decimalsHintN >= 0;
   const imageHint = matchInfo?.image?.trim() || null;
 
-  /** 即使 symbol / decimals 已能从 tokentx 元数据取得，仍在缺 logo 时拉一次 CoinGecko，确保两侧 token 都有图。 */
+  /** Fetch CoinGecko metadata when logo (or decimals/symbol) missing so swap rows can show icons. */
   let extra: TokenInfoItem | null = null;
   if (!symbolHint || !hasUsableDecimals || !imageHint) {
     extra = await fetchCoingeckoTokenContractFull(chain, contractLower);
@@ -754,7 +753,7 @@ type InternalTxItem = {
   isError?: string;
 };
 
-/** Etherscan v2 单笔 internal txs；仅用于聚合 user 净流入/流出 native（不展示每条）。 */
+/** Single-tx internal transfers from Etherscan v2 — only for native net flow, not shown per row. */
 async function fetchInternalNativeNetForUser(
   chainId: string,
   apiKey: string,
@@ -792,8 +791,8 @@ async function fetchInternalNativeNetForUser(
 }
 
 /**
- * 仅在交易成功 + 合约调用 时执行；基于 ERC-20 net flow + tx.value 识别 swap。
- * 支持：ERC-20 ↔ ERC-20、native → ERC-20、ERC-20 → native（后者需一次 `txlistinternal` 仅做聚合）。
+ * Swap detection for successful contract calls — combines ERC-20 net flow + `tx.value`.
+ * Covers ERC-20 ↔ ERC-20, native → ERC-20, ERC-20 → native (needs `txlistinternal` aggregation for the latter).
  */
 async function detectSwap(
   chain: string,
@@ -815,9 +814,7 @@ async function detectSwap(
   if (!routerLower) return null;
 
   /**
-   * Gating：只有 router 是已知 DEX / 聚合器，或 logs 中包含 Uniswap V2/V3/V4（含其 fork）`Swap` 事件
-   * 时才识别为 swap。否则把 lending / staking / LP 这类「出一个 token 拿一个 receipt token」的合约调用
-   * 误判为 swap。
+   * Require known router mapping or recognizable Uniswap-class `Swap` log; filters lending/staking/LP-shaped flows.
    */
   const knownDexRouter = DEX_ROUTERS_LOWER[routerLower] ?? null;
   const dexFromLogs = detectDexFromLogs(receipt, chain);
@@ -832,8 +829,7 @@ async function detectSwap(
   }
 
   /**
-   * 当 `tx.from`（user EOA）完全不在 ERC-20 transfers 里时，认为 token 流被 `tx.to`（代理 / MEV bot
-   * / 智能账户）代为持有，按它的视角重算 net flow。普通 user 直接调 router 的 swap 不会触发这条 fallback。
+   * If `tx.from` never appears in ERC-20 legs, flows may proxy through `tx.to` (MEV/smart account): re-score net flows from router.
    */
   const userInvolvedInTransfers = transfers.some((t) => {
     const f = normalizeAddress(t.from);
@@ -877,7 +873,7 @@ async function detectSwap(
     inContract = bestIn.contract;
     inRaw = bestIn.amount;
   } else if (outContract) {
-    /** ERC-20 → native：拉 internal txs 看 user 净收到多少原生币 */
+    /** ERC-20 → native leg: derive native credited from internal transfers. */
     const nativeIn = await fetchInternalNativeNetForUser(
       chainId,
       apiKey,

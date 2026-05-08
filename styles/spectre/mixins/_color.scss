@@ -1,0 +1,34 @@
+@use "sass:color";
+@use "../../variables";
+
+@mixin bg-color-variant(
+  $name: ".bg-primary",
+  $color: variables.$primary-color
+) {
+  #{$name} {
+    background: $color !important;
+
+    @if (color.channel($color, "lightness", $space: hsl) < 60%) {
+      color: variables.$light-color;
+    }
+  }
+}
+
+@mixin text-color-variant(
+  $name: ".text-primary",
+  $color: variables.$primary-color
+) {
+  #{$name} {
+    color: $color !important;
+  }
+
+  a#{$name} {
+    &:focus,
+    &:hover {
+      color: color.adjust($color, $lightness: -5%);
+    }
+    &:visited {
+      color: color.adjust($color, $lightness: 5%);
+    }
+  }
+}

@@ -1,0 +1,39 @@
+@use "../variables";
+
+// Base
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+html {
+  box-sizing: border-box;
+  font-size: variables.$html-font-size;
+  line-height: variables.$html-line-height;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: variables.$body-bg;
+  color: variables.$body-font-color;
+  font-family: variables.$body-font-family;
+  font-size: variables.$font-size;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: variables.$link-color;
+  outline: none;
+  text-decoration: none;
+
+  &:focus,
+  &:hover,
+  &:active,
+  &.active {
+    color: variables.$link-color-dark;
+    text-decoration: underline;
+  }
+}

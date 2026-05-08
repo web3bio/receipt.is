@@ -1,0 +1,34 @@
+@use "../variables";
+
+// Empty states (or Blank slates)
+.empty {
+  border-radius: variables.$border-radius;
+  color: variables.$dark-color;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  justify-content: center;
+  text-align: center;
+  padding: variables.$unit-16 variables.$unit-8;
+
+  .empty-icon {
+    margin-bottom: variables.$layout-spacing;
+  }
+
+  .empty-title,
+  .empty-subtitle {
+    margin: 0 auto;
+  }
+
+  .empty-title {
+    font-weight: 700;
+  }
+
+  .empty-action {
+    align-items: center;
+    display: flex;
+    gap: .5rem;
+    justify-content: center;
+    margin-top: variables.$layout-spacing-lg;
+  }
+}

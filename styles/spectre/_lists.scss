@@ -1,0 +1,75 @@
+@use "../variables";
+
+.list-item {
+  border-radius: 0.4rem;
+  display: flex;
+  flex: 1 0 100%;
+  gap: 0.5rem;
+  margin: 0.2rem -0.4rem;
+  padding: 0.4rem;
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+
+  &:focus,
+  &:hover {
+    background: rgba(variables.$dark-color, 0.05);
+    text-decoration: none;
+
+    .list-item-actions {
+      .btn-link {
+        background: variables.$bg-color;
+        border-color: variables.$border-color;
+      }
+    }
+  }
+
+  .list-item-icon {
+    border-radius: 0.4rem;
+    flex: 0 0 2rem;
+    object-fit: cover;
+    position: relative;
+    width: 2rem;
+
+    &.avatar {
+      border-radius: 50%;
+    }
+
+    .list-item-status {
+      align-items: center;
+      background: variables.$bg-color;
+      border-radius: 50%;
+      bottom: -0.2rem;
+      box-shadow:
+        0 0.1rem 0.4rem -0.4rem rgba(variables.$dark-color, 0.25),
+        0 0.1rem 0.2rem rgba(variables.$dark-color, 0.05);
+      display: flex;
+      flex: 0 0;
+      font-size: 0.8rem;
+      height: 1.2rem;
+      justify-content: center;
+      padding: 0.2rem;
+      position: absolute;
+      right: -0rem;
+      width: 1.2rem;
+    }
+  }
+
+  .list-item-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    line-height: 1rem;
+  }
+
+  .list-item-subtitle {
+    font-size: 0.65rem;
+    line-height: 0.9rem;
+    margin-top: 0.2rem;
+  }
+
+  .list-item-actions {
+    .btn-link {
+      border-color: variables.$border-color;
+    }
+  }
+}

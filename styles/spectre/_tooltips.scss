@@ -1,0 +1,121 @@
+@use "../variables";
+
+// Tooltips
+.tooltip {
+  position: relative;
+
+  &[aria-label] {
+    &::after {
+      background: rgba(variables.$dark-color, 0.95);
+      border-radius: variables.$border-radius;
+      bottom: 100%;
+      color: variables.$light-color;
+      content: attr(aria-label);
+      display: none;
+      font-size: variables.$font-size-sm;
+      left: 50%;
+      max-width: variables.$control-width-sm;
+      opacity: 0;
+      padding: variables.$unit-1 variables.$unit-2;
+      pointer-events: none;
+      position: absolute;
+      transform: translate(-50%, variables.$unit-2);
+      transition:
+        opacity 0.2s,
+        transform 0.2s;
+      white-space: wrap;
+      width: max-content;
+      word-break: break-word;
+      z-index: 99999;
+    }
+
+    &:focus,
+    &:hover {
+      &::after {
+        display: block;
+        opacity: 1;
+        transform: translate(-50%, -(variables.$unit-1));
+      }
+    }
+  }
+  &[disabled],
+  &.disabled {
+    pointer-events: auto;
+  }
+  &.tooltip-lg {
+    height: 3rem;
+    white-space: wrap;
+  }
+
+  &.tooltip-right {
+    &::after {
+      bottom: 50%;
+      left: 100%;
+      transform: translate(-(variables.$unit-1), 50%);
+    }
+    &:focus,
+    &:hover {
+      &::after {
+        transform: translate(variables.$unit-1, 50%);
+      }
+    }
+  }
+
+  &.tooltip-bottom {
+    &::after {
+      bottom: auto;
+      top: 100%;
+      transform: translate(-50%, -(variables.$unit-2));
+    }
+    &:focus,
+    &:hover {
+      &::after {
+        transform: translate(-50%, variables.$unit-1);
+      }
+    }
+  }
+
+  &.tooltip-left {
+    &::after {
+      bottom: 50%;
+      left: auto;
+      right: 100%;
+      transform: translate(variables.$unit-2, 50%);
+    }
+    &:focus,
+    &:hover {
+      &::after {
+        transform: translate(-(variables.$unit-1), 50%);
+      }
+    }
+  }
+
+  &.tooltip-top-left {
+    &::after {
+      bottom: 100%;
+      left: 0;
+      transform: translate(0, variables.$unit-2);
+    }
+    &:focus,
+    &:hover {
+      &::after {
+        transform: translate(0, -(variables.$unit-1));
+      }
+    }
+  }
+
+  &.tooltip-top-right {
+    &::after {
+      bottom: 100%;
+      left: auto;
+      right: 0;
+      transform: translate(0, variables.$unit-2);
+    }
+    &:focus,
+    &:hover {
+      &::after {
+        transform: translate(0, -(variables.$unit-1));
+      }
+    }
+  }
+}

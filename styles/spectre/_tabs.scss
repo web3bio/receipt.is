@@ -1,0 +1,19 @@
+@use "../variables";
+
+// Tabs
+.tab {
+  background: rgba(variables.$gray-color-light, 0.5);
+  border-radius: 0.4rem;
+  padding: 0.1rem;
+
+  .btn {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+
+    &.active {
+      background: variables.$light-color;
+      box-shadow: 0 0.1rem 0.2rem 0.05rem rgba(variables.$dark-color, 0.1);
+    }
+  }
+}

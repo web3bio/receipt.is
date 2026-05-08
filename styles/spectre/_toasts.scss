@@ -1,0 +1,26 @@
+@use "sass:color";
+@use "../variables";
+
+// Toasts
+.toast {
+  align-items: center;
+  backdrop-filter: blur(2rem) saturate(120%) brightness(100%);
+  background: color.adjust(variables.$dark-color, $lightness: 6%);
+  border: 0.1rem solid rgba(variables.$dark-color, 0.1);
+  border-radius: variables.$border-radius-lg;
+  box-shadow: 0 0.1rem 0.6rem rgba(variables.$dark-color, 0.5);
+  color: variables.$light-color;
+  display: flex;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.xmtp-toast {
+  background: #fff;
+  border-radius: 0.6rem;
+  box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.15);
+  color: #000;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.8rem;
+}

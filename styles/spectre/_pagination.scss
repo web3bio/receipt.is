@@ -1,0 +1,62 @@
+@use "../variables";
+
+// Pagination
+.pagination {
+  display: flex;
+  list-style: none;
+  margin: variables.$unit-1 0;
+  padding: variables.$unit-1 0;
+
+  .page-item {
+    margin: variables.$unit-1 variables.$unit-o;
+
+    span {
+      display: inline-block;
+      padding: variables.$unit-1 variables.$unit-1;
+    }
+
+    a {
+      border-radius: variables.$border-radius;
+      display: inline-block;
+      padding: variables.$unit-1 variables.$unit-2;
+      text-decoration: none;
+      &:focus,
+      &:hover {
+        color: variables.$primary-color;
+      }
+    }
+
+    &.disabled {
+      a {
+        cursor: default;
+        opacity: .5;
+        pointer-events: none;
+      }
+    }
+
+    &.active {
+      a {
+        background: variables.$primary-color;
+        color: variables.$light-color;
+      }
+    }
+
+    &.page-prev,
+    &.page-next {
+      flex: 1 0 50%;
+    }
+
+    &.page-next {
+      text-align: right;
+    }
+
+    .page-item-title {
+      margin: 0;
+    }
+
+    .page-item-subtitle {
+      margin: 0;
+      opacity: .5;
+    }
+  }
+}

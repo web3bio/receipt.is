@@ -23,7 +23,7 @@ export function normalizeChain(chain?: string | null) {
   return chain?.toLowerCase().trim() ?? "eth";
 }
 
-/** UI / 收据文案用链全称；未知 slug 时回退为当前规范化字符串。 */
+/** Full chain name for UI; unknown slug falls back to normalized string. */
 export function getChainDisplayName(chain?: string | null): string {
   const k = normalizeChain(chain) as SupportedChain;
   return CHAIN_DISPLAY_NAMES[k] ?? k;
@@ -33,7 +33,7 @@ export function getChainId(chain: string) {
   return CHAIN_TO_ID[chain as SupportedChain];
 }
 
-/** CoinGecko `simple/token_price/{platform}`（免费公共 API，可选 Demo key） */
+/** CoinGecko `simple/token_price/{platform}`; public API with optional Demo API key for rate limits. */
 export const CHAIN_TO_COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   eth: "ethereum",
   base: "base",

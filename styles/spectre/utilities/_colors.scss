@@ -1,0 +1,36 @@
+@use "../../variables";
+@use "../mixins/color";
+
+// Text colors
+@include color.text-color-variant(".text-primary", variables.$primary-color);
+
+@include color.text-color-variant(".text-secondary", variables.$secondary-color-dark);
+
+@include color.text-color-variant(".text-gray", variables.$gray-color);
+
+@include color.text-color-variant(".text-gray-dark", variables.$gray-color-dark);
+
+@include color.text-color-variant(".text-light", variables.$light-color);
+
+@include color.text-color-variant(".text-dark", variables.$body-font-color);
+
+@include color.text-color-variant(".text-success", variables.$success-color);
+
+@include color.text-color-variant(".text-warning", variables.$warning-color);
+
+@include color.text-color-variant(".text-error", variables.$error-color);
+
+// Background colors
+@include color.bg-color-variant(".bg-primary", variables.$primary-color);
+
+@include color.bg-color-variant(".bg-secondary", variables.$secondary-color);
+
+@include color.bg-color-variant(".bg-dark", variables.$dark-color);
+
+@include color.bg-color-variant(".bg-gray", variables.$bg-color);
+
+@include color.bg-color-variant(".bg-success", variables.$success-color);
+
+@include color.bg-color-variant(".bg-warning", variables.$warning-color);
+
+@include color.bg-color-variant(".bg-error", variables.$error-color);

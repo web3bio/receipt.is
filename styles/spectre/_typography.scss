@@ -1,0 +1,133 @@
+@use "sass:color";
+@use "../variables";
+@use "mixins/label";
+
+// Typography
+// Headings
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: inherit;
+  font-weight: 500;
+  line-height: 1.2;
+  margin-bottom: .5em;
+  margin-top: 0;
+}
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+  font-weight: 500;
+}
+h1,
+.h1 {
+  font-size: 2.4rem;
+}
+h2,
+.h2 {
+  font-size: 1.6rem;
+}
+h3,
+.h3 {
+  font-size: 1.4rem;
+}
+h4,
+.h4 {
+  font-size: 1.2rem;
+}
+h5,
+.h5 {
+  font-size: 1rem;
+}
+h6,
+.h6 {
+  font-size: .8rem;
+}
+
+// Paragraphs
+p {
+  margin: 0 0 variables.$line-height;
+}
+
+// Semantic text elements
+a,
+ins,
+u {
+  text-decoration-skip: ink edges;
+}
+
+abbr[title] {
+  border-bottom: variables.$border-width dotted;
+  cursor: help;
+  text-decoration: none;
+}
+
+kbd {
+  @include label.label-base();
+  @include label.label-variant(variables.$light-color, variables.$dark-color);
+  font-size: variables.$font-size-sm;
+}
+
+mark {
+  @include label.label-variant(variables.$body-font-color, variables.$highlight-color);
+  border-bottom: variables.$unit-o solid color.adjust(variables.$highlight-color, $lightness: -15%);
+  border-radius: variables.$border-radius;
+  padding: variables.$unit-o variables.$unit-h 0;
+}
+
+// Blockquote
+blockquote {
+  border-left: variables.$border-width-lg solid variables.$border-color;
+  margin-left: 0;
+  padding: variables.$unit-2 variables.$unit-4;
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// Lists
+ul,
+ol {
+  margin: variables.$unit-4 0 variables.$unit-4 variables.$unit-4;
+  padding: 0;
+
+  ul,
+  ol {
+    margin: variables.$unit-4 0 variables.$unit-4 variables.$unit-4;
+  }
+
+  li {
+    margin-top: variables.$unit-2;
+  }
+}
+
+ul {
+  list-style: disc inside;
+
+  ul {
+    list-style-type: circle;
+  }
+}
+
+ol {
+  list-style: decimal inside;
+
+  ol {
+    list-style-type: lower-alpha;
+  }
+}
+
+dl {
+  dt {
+    font-weight: bold;
+  }
+  dd {
+    margin: variables.$unit-2 0 variables.$unit-4 0;
+  }
+}

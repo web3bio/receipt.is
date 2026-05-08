@@ -1,0 +1,85 @@
+@use "sass:color";
+@use "../variables";
+@use "mixins/avatar";
+
+// Avatars
+.avatar {
+  @include avatar.avatar-base();
+  background: rgba(color.adjust(variables.$primary-color, $lightness: -40%), .15);
+  border-radius: 50%;
+  box-shadow: 0 .3rem .6rem rgba(0, 0, 0, .1);
+  color: rgba(variables.$light-color, .85);
+  display: inline-block;
+  font-weight: 300;
+  line-height: 1.25;
+  margin: 0;
+  object-fit: cover;
+  position: relative;
+  text-transform: uppercase;
+  vertical-align: middle;
+
+  &.avatar-xs {
+    @include avatar.avatar-base(variables.$unit-4);
+  }
+  &.avatar-sm {
+    @include avatar.avatar-base(variables.$unit-6);
+  }
+  &.avatar-lg {
+    @include avatar.avatar-base(variables.$unit-12);
+  }
+  &.avatar-xl {
+    @include avatar.avatar-base(variables.$unit-16);
+  }
+
+  img {
+    border-radius: 50%;
+    height: 100%;
+    position: relative;
+    width: 100%;
+    z-index: variables.$zindex-0;
+  }
+
+  .avatar-icon,
+  .avatar-presence {
+    background: variables.$bg-color-light;
+    bottom: 14.64%;
+    height: 50%;
+    padding: variables.$border-width-lg;
+    position: absolute;
+    right: 14.64%;
+    transform: translate(50%, 50%);
+    width: 50%;
+    z-index: variables.$zindex-0 + 1;
+  }
+
+  .avatar-presence {
+    background: variables.$gray-color;
+    box-shadow: 0 0 0 variables.$border-width-lg variables.$light-color;
+    border-radius: 50%;
+    height: .5em;
+    width: .5em;
+
+    &.online {
+      background: variables.$success-color;
+    }
+
+    &.busy {
+      background: variables.$error-color;
+    }
+
+    &.away {
+      background: variables.$warning-color;
+    }
+  }
+
+  &[data-initial]::before {
+    color: currentColor;
+    content: attr(data-initial);
+    font-weight: 500;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: variables.$zindex-0;
+  }
+}

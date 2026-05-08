@@ -1,0 +1,69 @@
+@use "../../variables";
+@use "../mixins/clearfix";
+@use "../mixins/position";
+
+// Position
+.clearfix {
+  @include clearfix.clearfix();
+}
+
+.float-left {
+  float: left !important;
+}
+
+.float-right {
+  float: right !important;
+}
+
+.p-relative {
+  position: relative !important;
+}
+
+.p-absolute {
+  position: absolute !important;
+}
+
+.p-fixed {
+  position: fixed !important;
+}
+
+.p-sticky {
+  position: sticky !important;
+}
+
+.p-centered {
+  display: block;
+  float: none;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.flex-centered {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.justify-between {
+  display: flex;
+  justify-content: space-between;
+}
+
+// Spacing
+@include position.margin-variant(auto, auto);
+
+@include position.margin-variant(0, 0);
+
+@include position.margin-variant(1, variables.$unit-1);
+
+@include position.margin-variant(2, variables.$unit-2);
+
+@include position.margin-variant(4, variables.$unit-4);
+
+@include position.padding-variant(0, 0);
+
+@include position.padding-variant(1, variables.$unit-1);
+
+@include position.padding-variant(2, variables.$unit-2);
+
+@include position.padding-variant(4, variables.$unit-4);

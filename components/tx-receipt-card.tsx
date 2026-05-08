@@ -81,11 +81,8 @@ export type TxReceiptData = {
   };
   tokenInfo?: TokenInfo | null;
   tokenInfoContractAddress?: string | null;
-  /** `contract_call` 且 `to` 与定价用 token 合约不一致时，对 `transaction.to` 单独拉取的 CoinGecko 元数据 */
   calledContract?: TokenInfo | null;
-  /** 原生币 USD（wei 18 位）：优先 CoinGecko，失败则 Etherscan ethprice；仅 native_transfer 且无 ERC-20 */
   ethUsd?: string | null;
-  /** 仅 `contract_call`：识别到的 token swap 信息（双侧 token + DEX）；非 swap 时为 null。 */
   swap?: SwapInfo | null;
 };
 
@@ -114,7 +111,7 @@ function ShareButton() {
   };
 
   return (
-    <button type="button" className="receipt-share-btn" onClick={onShare}>
+    <button type="button" className="receipt-action-btn" onClick={onShare}>
       Share
     </button>
   );
@@ -240,13 +237,10 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
   const erc20TransfersList = data.erc20Transfers.transfers ?? [];
   const hasErc20InTx = erc20TransfersList.length > 0;
   const isNativeTxType = data.type === "native_transfer";
-  /** swap：合约调用且 API 已识别 in/out token */
   const isSwapOverview =
     data.type === "contract_call" && Boolean(data.swap);
-  /** 原生转账或本笔存在 ERC-20 转账（且非 swap）：overview 用 sent … to … */
   const overviewTransferLayout =
     !isSwapOverview && (isNativeTxType || hasErc20InTx);
-  /** 仅合约调用、无上述转账/swap 语义 */
   const isContractCallOverview =
     data.type === "contract_call" &&
     Boolean((toAddress ?? "").trim()) &&
@@ -330,113 +324,118 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
   ]);
 
   return (
-    <section className="receipt-shell">
-      <article className="receipt-card">
-        <header className="receipt-topbar">
-          <span className={`receipt-status-badge ${getStatusClass(txStatus)}`}>{statusLabel}</span>
-          <ShareButton />
-        </header>
+    <article className="receipt-card">
+      <header className="receipt-topbar">
+        <span className={`receipt-status-badge ${getStatusClass(txStatus)}`}>
+          {statusLabel}
+        </span>
+        <ShareButton />
+      </header>
 
-        <OverviewCard
-          variant={
-            isSwapOverview
-              ? "swap"
-              : isContractCallOverview
-                ? "contract_call"
-                : "token_transfer"
-          }
-          methodPhrase={contractMethodPhrase}
-          usdValue={usdValue}
-          amount={amount}
-          tokenSymbol={tokenSymbol}
-          tokenLogoUrl={tokenLogoUrl}
-          blockTimestamp={block.timestamp as string | undefined}
-          chainName={
-            isContractCallOverview ? getChainDisplayName(chain) : undefined
-          }
-          dexName={isSwapOverview ? swapView?.dexName ?? null : null}
-          swap={
-            isSwapOverview && swapView
-              ? { from: swapView.from, to: swapView.to }
-              : null
-          }
-          fromIdentityText={fromProfileView.identityText}
-          fromAvatarUrl={fromProfileView.avatarUrl}
-          toIdentityText={
-            isContractCallOverview
-              ? overviewToIdentityText
-              : toProfileView.identityText
-          }
-          toAvatarUrl={
-            isContractCallOverview ? overviewToAvatarUrl : toProfileView.avatarUrl
-          }
+      <OverviewCard
+        variant={
+          isSwapOverview
+            ? "swap"
+            : isContractCallOverview
+              ? "contract_call"
+              : "token_transfer"
+        }
+        methodPhrase={contractMethodPhrase}
+        usdValue={usdValue}
+        amount={amount}
+        tokenSymbol={tokenSymbol}
+        tokenLogoUrl={tokenLogoUrl}
+        blockTimestamp={block.timestamp as string | undefined}
+        chainName={
+          isContractCallOverview ? getChainDisplayName(chain) : undefined
+        }
+        dexName={isSwapOverview ? swapView?.dexName ?? null : null}
+        swap={
+          isSwapOverview && swapView
+            ? { from: swapView.from, to: swapView.to }
+            : null
+        }
+        fromIdentityText={fromProfileView.identityText}
+        fromAvatarUrl={fromProfileView.avatarUrl}
+        toIdentityText={
+          isContractCallOverview
+            ? overviewToIdentityText
+            : toProfileView.identityText
+        }
+        toAvatarUrl={
+          isContractCallOverview ? overviewToAvatarUrl : toProfileView.avatarUrl
+        }
+      />
+
+      <section className="receipt-flow">
+        <AddressCard
+          title="FROM"
+          addressLabel={fromAddress}
+          displayLabel={fromProfileView.displayLabel}
+          addressValue={fromProfileView.addressValue}
+          avatarUrl={fromProfileView.avatarUrl}
         />
+        <div className="receipt-flow-arrow" aria-hidden>
+          <Image src="/icon-arrow.svg" alt="" width={18} height={18} />
+        </div>
+        <AddressCard
+          title="TO"
+          addressLabel={toAddress}
+          displayLabel={toProfileView.displayLabel}
+          addressValue={toProfileView.addressValue}
+          avatarUrl={toProfileView.avatarUrl}
+        />
+      </section>
 
-        <section className="receipt-flow">
-          <AddressCard
-            title="FROM"
-            addressLabel={fromAddress}
-            displayLabel={fromProfileView.displayLabel}
-            addressValue={fromProfileView.addressValue}
-            avatarUrl={fromProfileView.avatarUrl}
-          />
-          <div className="receipt-flow-arrow" aria-hidden>
-            <Image src="/icon-arrow.svg" alt="" width={18} height={18} />
-          </div>
-          <AddressCard
-            title="TO"
-            addressLabel={toAddress}
-            displayLabel={toProfileView.displayLabel}
-            addressValue={toProfileView.addressValue}
-            avatarUrl={toProfileView.avatarUrl}
-          />
-        </section>
-
-        <footer className="receipt-footer">
-          <ul className="receipt-detail-list">
-            <li className="receipt-detail-row">
-              <span className="receipt-detail-label">Time</span>
-              <div className="receipt-detail-time">
-                <span className="receipt-detail-time-main">
-                  {timeRelativeAgo === "-" ? (
-                    "-"
-                  ) : (
-                    <>
-                      <span className="receipt-detail-time-ago">{timeRelativeAgo}</span>
-                      {timeText !== "-" && timeText.trim() !== "" ? (
-                        <span className="receipt-detail-time-paren"> ({timeText})</span>
-                      ) : null}
-                    </>
-                  )}
-                </span>
-                <select
-                  className="receipt-time-mode-select"
-                  aria-label="Time display mode"
-                  value={timeMode}
-                  onChange={(e) =>
-                    setTimeMode(e.target.value as BlockTimestampMode)
-                  }
-                >
-                  <option value="local">Local</option>
-                  <option value="unix">Unix</option>
-                  <option value="utc">UTC</option>
-                </select>
-              </div>
-            </li>
-            <DetailRow label="Network" value={getChainDisplayName(chain)} />
-            <DetailRow label="Block" value={blockNumberDisplay} />
-            <li className="receipt-detail-row">
-              <span className="receipt-detail-label">Transaction Hash</span>
-              <span className="receipt-detail-value receipt-detail-value--hash">
-                {hash}
+      <footer className="receipt-footer">
+        <ul className="receipt-detail-list">
+          <li className="receipt-detail-row">
+            <span className="receipt-detail-label">Time</span>
+            <div className="receipt-detail-time">
+              <span className="receipt-detail-time-main">
+                {timeRelativeAgo === "-" ? (
+                  "-"
+                ) : (
+                  <>
+                    {timeRelativeAgo}
+                    {timeText !== "-" && timeText.trim() !== "" ? (
+                      <span className="receipt-detail-time-paren"> ({timeText})</span>
+                    ) : null}
+                  </>
+                )}
               </span>
-            </li>
-          </ul>
-          <a className="receipt-explorer-btn" href={explorerUrl} target="_blank" rel="noreferrer">
-            Explorer
-          </a>
-        </footer>
-      </article>
-    </section>
+              <select
+                className="receipt-time-mode"
+                aria-label="Time display mode"
+                value={timeMode}
+                onChange={(e) =>
+                  setTimeMode(e.target.value as BlockTimestampMode)
+                }
+              >
+                <option value="local">Local</option>
+                <option value="unix">Unix</option>
+                <option value="utc">UTC</option>
+              </select>
+            </div>
+          </li>
+          <DetailRow label="Network" value={getChainDisplayName(chain)} />
+          <DetailRow label="Block" value={blockNumberDisplay} />
+          <li className="receipt-detail-row">
+            <span className="receipt-detail-label">Transaction Hash</span>
+            <span className="receipt-detail-value receipt-detail-value--hash">
+              {hash}
+            </span>
+          </li>
+        </ul>
+        <a
+          className="receipt-action-btn receipt-action-btn--end"
+          href={explorerUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Explorer
+        </a>
+      </footer>
+    </article>
   );
 }

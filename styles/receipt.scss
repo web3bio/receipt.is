@@ -1,0 +1,682 @@
+@use "sass:color";
+@use "variables";
+@use "spectre/normalize";
+@use "spectre/base";
+
+$receipt-radius-sm: 0.4rem;
+$receipt-radius: 0.6rem;
+$receipt-radius-lg: 0.8rem;
+$receipt-radius-xl: 1.2rem;
+$receipt-pill: 99rem;
+
+$receipt-muted: rgba(variables.$dark-color, 0.55);
+$receipt-soft: rgba(variables.$dark-color, 0.04);
+$receipt-border: rgba(variables.$dark-color, 0.08);
+$receipt-shadow: 0 0.5rem 1.5rem rgba(variables.$dark-color, 0.08);
+
+$receipt-bp-md: 48rem;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: variables.$light-color;
+  font-family: var(--font-geist-sans), variables.$body-font-family;
+  min-height: 100vh;
+}
+
+.receipt-page {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: variables.$unit-3;
+  width: 100%;
+
+  @media (min-width: $receipt-bp-md) {
+    padding: variables.$unit-5;
+  }
+}
+
+.receipt-card {
+  background: variables.$light-color;
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-radius-xl;
+  box-shadow: $receipt-shadow;
+  padding: variables.$unit-4;
+  width: 100%;
+  max-width: 32rem;
+
+  @media (min-width: $receipt-bp-md) {
+    padding: variables.$unit-5;
+  }
+
+  &.receipt-card--intro {
+    max-width: 28rem;
+  }
+}
+
+.receipt-intro-title {
+  color: variables.$dark-color;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 variables.$unit-3;
+}
+
+.receipt-intro-text {
+  color: variables.$body-font-color;
+  font-size: variables.$font-size;
+  line-height: 1.5;
+  margin: 0 0 variables.$unit-2;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.receipt-intro-muted {
+  color: $receipt-muted;
+}
+
+.receipt-intro-code {
+  background: $receipt-soft;
+  border-radius: $receipt-radius-sm;
+  color: variables.$dark-color;
+  font-family: var(--font-geist-mono), variables.$mono-font-family;
+  font-size: 0.65rem;
+  padding: 0.05rem 0.25rem;
+}
+
+.receipt-topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.receipt-status-badge {
+  border: variables.$border-width-sm solid transparent;
+  border-radius: $receipt-pill;
+  font-size: variables.$font-size-sm;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.3rem 0.5rem;
+
+  &.receipt-status-confirmed {
+    background: color.adjust(variables.$success-color, $lightness: 45%);
+    border-color: color.adjust(variables.$success-color, $lightness: 30%);
+    color: color.adjust(variables.$success-color, $lightness: -15%);
+  }
+
+  &.receipt-status-pending {
+    background: color.adjust(variables.$warning-color, $lightness: 40%);
+    border-color: color.adjust(variables.$warning-color, $lightness: 20%);
+    color: color.adjust(variables.$warning-color, $lightness: -25%);
+  }
+
+  &.receipt-status-failed {
+    background: color.adjust(variables.$error-color, $lightness: 50%);
+    border-color: color.adjust(variables.$error-color, $lightness: 30%);
+    color: variables.$error-color;
+  }
+}
+
+.receipt-action-btn {
+  background: variables.$light-color;
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-radius;
+  color: variables.$dark-color;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: variables.$font-size-sm;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0.3rem 0.45rem;
+  text-decoration: none;
+  transition: background 0.2s ease;
+
+  &:focus,
+  &:hover {
+    background: $receipt-soft;
+    color: variables.$dark-color;
+    text-decoration: none;
+  }
+
+  &.receipt-action-btn--end {
+    align-self: flex-end;
+  }
+}
+
+.receipt-divider {
+  border: 0;
+  border-top: variables.$border-width-sm solid $receipt-border;
+  margin: variables.$unit-4 0;
+}
+
+.receipt-flow {
+  display: flex;
+  flex-direction: column;
+  gap: variables.$unit-h;
+  margin-top: variables.$unit-3;
+}
+
+.receipt-flow-arrow {
+  align-items: center;
+  background: variables.$light-color;
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-radius;
+  color: variables.$dark-color;
+  display: flex;
+  height: 1.6rem;
+  justify-content: center;
+  margin: -0.8rem auto;
+  position: relative;
+  width: 1.6rem;
+  z-index: 1;
+
+  img {
+    color: $receipt-muted;
+    transform: rotate(90deg);
+  }
+}
+
+.receipt-footer {
+  display: flex;
+  flex-direction: column;
+  gap: variables.$unit-3;
+  margin-top: variables.$unit-4;
+}
+
+.receipt-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: variables.$unit-3;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.receipt-detail-row {
+  align-items: flex-start;
+  display: flex;
+  gap: variables.$unit-4;
+  justify-content: space-between;
+
+  > .receipt-detail-value,
+  > .receipt-detail-time {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.receipt-detail-label {
+  color: $receipt-muted;
+  flex-shrink: 0;
+  font-size: variables.$font-size;
+  line-height: 1.4;
+}
+
+.receipt-detail-value {
+  color: variables.$dark-color;
+  font-size: variables.$font-size;
+  line-height: 1.45;
+  min-width: 0;
+  text-align: right;
+  word-break: break-all;
+
+  &.receipt-detail-value--hash {
+    font-family: var(--font-geist-mono), variables.$mono-font-family;
+    font-size: variables.$font-size-sm;
+    line-height: 1.35;
+    max-width: min(100%, 38ch);
+  }
+}
+
+.receipt-detail-time {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.4rem;
+  justify-content: flex-end;
+  max-width: 100%;
+  text-align: right;
+}
+
+.receipt-detail-time-main {
+  color: variables.$dark-color;
+  font-size: variables.$font-size;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  text-align: right;
+
+  > .receipt-detail-time-paren {
+    color: $receipt-muted;
+    font-weight: 500;
+  }
+}
+
+.receipt-time-mode {
+  background: variables.$light-color;
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-radius-sm;
+  color: variables.$body-font-color;
+  cursor: pointer;
+  font-size: variables.$font-size-sm;
+  font-weight: 500;
+  line-height: 1.25;
+  padding: 0.15rem 0.8rem 0.15rem 0.3rem;
+}
+
+.receipt-error {
+  color: variables.$error-color;
+  font-size: variables.$font-size;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.receipt-overview {
+  background: $receipt-soft;
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-radius-lg;
+  margin-top: variables.$unit-3;
+  padding: variables.$unit-4;
+  text-align: center;
+}
+
+.receipt-overview-price {
+  font-size: clamp(1.4rem, 5.5vw, 2rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 variables.$unit-3;
+}
+
+.receipt-overview-price-prefix {
+  color: $receipt-muted;
+  font-size: 0.88em;
+  font-weight: 600;
+  margin-inline-end: 0.08em;
+}
+
+.receipt-overview-price-dollar,
+.receipt-overview-price-digits {
+  font-weight: 700;
+}
+
+.receipt-overview-price-dollar {
+  color: rgba(variables.$dark-color, 0.25);
+  margin-inline-end: 0.1em;
+}
+
+.receipt-overview-price-digits {
+  color: variables.$dark-color;
+}
+
+.receipt-overview-flow {
+  display: flex;
+  flex-direction: column;
+  gap: variables.$unit-2;
+}
+
+.receipt-overview-line {
+  align-items: center;
+  color: variables.$dark-color;
+  display: flex;
+  flex-wrap: wrap;
+  font-weight: 500;
+  gap: 0.2rem 0.4rem;
+  justify-content: center;
+  margin: 0;
+
+  &.receipt-overview-line--main {
+    font-size: clamp(0.85rem, 3.4vw, 1rem);
+    line-height: 1.4;
+  }
+
+  &.receipt-overview-line--sub {
+    color: $receipt-muted;
+    font-size: clamp(0.7rem, 2.9vw, 0.85rem);
+    line-height: 1.45;
+  }
+
+  &.receipt-overview-line--sub .receipt-identity-text {
+    color: variables.$dark-color;
+    font-weight: 500;
+  }
+}
+
+.receipt-overview-verb {
+  color: $receipt-muted;
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
+
+.receipt-overview-method {
+  color: variables.$dark-color;
+  font-weight: 600;
+  max-width: min(100%, 16rem);
+}
+
+.receipt-overview-method-badge {
+  align-items: center;
+  background: rgba(variables.$light-color, 0.85);
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-pill;
+  color: $receipt-muted;
+  display: inline-flex;
+  font-size: 0.65em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  text-transform: uppercase;
+}
+
+.receipt-overview-prep {
+  color: $receipt-muted;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.receipt-overview-chain {
+  color: variables.$dark-color;
+  font-weight: 600;
+}
+
+.receipt-overview-time {
+  color: $receipt-muted;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.receipt-overview-amount {
+  align-items: baseline;
+  color: variables.$dark-color;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 0.25rem;
+
+  strong {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+}
+
+.receipt-overview-symbol {
+  color: $receipt-muted;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.receipt-token-icon {
+  align-self: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  height: 0.85rem;
+  object-fit: cover;
+  width: 0.85rem;
+}
+
+.receipt-identity {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+  max-width: 100%;
+}
+
+.receipt-identity-text {
+  min-width: 0;
+  text-align: left;
+}
+
+.receipt-avatar {
+  align-items: center;
+  background: $receipt-soft;
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-radius;
+  color: $receipt-muted;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 0.45rem;
+  font-weight: 700;
+  height: 1rem;
+  justify-content: center;
+  letter-spacing: -0.025em;
+  overflow: hidden;
+  text-transform: uppercase;
+  width: 1rem;
+
+  &.receipt-avatar--lg {
+    border-radius: $receipt-radius-lg;
+    font-size: 0.65rem;
+    height: 2.2rem;
+    width: 2.2rem;
+  }
+
+  > img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+}
+
+.receipt-address {
+  background: $receipt-soft;
+  border: variables.$border-width-sm solid $receipt-border;
+  border-radius: $receipt-radius-lg;
+  padding: variables.$unit-3;
+}
+
+.receipt-address-title {
+  color: variables.$body-font-color;
+  font-size: variables.$font-size-sm;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0 0 variables.$unit-2;
+}
+
+.receipt-address-row {
+  align-items: center;
+  display: flex;
+  gap: variables.$unit-2;
+}
+
+.receipt-address-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.receipt-address-name {
+  color: variables.$dark-color;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+  word-break: break-word;
+}
+
+.receipt-address-text {
+  align-items: center;
+  display: inline-flex;
+  font-size: variables.$font-size-sm;
+  margin: 0;
+  word-break: break-all;
+
+  > .receipt-address-edge {
+    color: variables.$dark-color;
+  }
+
+  > .receipt-address-mid {
+    color: $receipt-muted;
+  }
+}
+
+.receipt-copy-btn {
+  background: transparent;
+  border: 0;
+  border-radius: $receipt-radius-sm;
+  color: $receipt-muted;
+  cursor: pointer;
+  line-height: 0;
+  margin-left: 0.2rem;
+  opacity: 0.8;
+  padding: 0;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: variables.$border-width-lg solid $receipt-border;
+    outline-offset: variables.$border-width-lg;
+  }
+}
+
+@keyframes receipt-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.receipt-skeleton {
+  animation: receipt-pulse 1.4s ease-in-out infinite;
+  background: rgba(variables.$dark-color, 0.08);
+  border-radius: $receipt-radius;
+}
+
+.receipt-skeleton--badge {
+  height: 1.5rem;
+  width: 5.5rem;
+}
+
+.receipt-skeleton--share {
+  height: 1.5rem;
+  width: 3.6rem;
+}
+
+.receipt-skeleton--price {
+  height: 2.4rem;
+  margin: 0 auto;
+  width: 8rem;
+}
+
+.receipt-skeleton--note {
+  height: 1.4rem;
+  margin: 0 auto;
+  width: 56%;
+}
+
+.receipt-skeleton--token-icon {
+  border-radius: 50%;
+  height: 0.85rem;
+  width: 0.85rem;
+}
+
+.receipt-skeleton--mini-avatar {
+  border-radius: $receipt-radius-sm;
+  flex-shrink: 0;
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+.receipt-skeleton--bar {
+  height: 0.7rem;
+  width: min(42%, 6rem);
+}
+
+.receipt-skeleton--bar-lg {
+  height: 0.8rem;
+  width: min(55%, 8rem);
+}
+
+.receipt-skeleton--amount {
+  height: 0.9rem;
+  width: 4.4rem;
+}
+
+.receipt-skeleton--time {
+  height: 0.65rem;
+  width: 6.4rem;
+}
+
+.receipt-skeleton--pill {
+  border-radius: $receipt-pill;
+  height: 1rem;
+  width: 1.8rem;
+}
+
+.receipt-skeleton--avatar-lg {
+  border-radius: $receipt-radius-lg;
+  flex-shrink: 0;
+  height: 2.2rem;
+  width: 2.2rem;
+}
+
+.receipt-skeleton--copy {
+  border-radius: $receipt-radius-sm;
+  flex-shrink: 0;
+  height: 0.7rem;
+  width: 0.7rem;
+}
+
+.receipt-skeleton--detail-label {
+  height: 0.7rem;
+  width: 5rem;
+}
+
+.receipt-skeleton--detail-value {
+  height: 0.7rem;
+  width: 6.5rem;
+}
+
+.receipt-skeleton--detail-value-long {
+  height: 0.7rem;
+  width: 11rem;
+}
+
+.receipt-skeleton--explorer {
+  border-radius: $receipt-radius;
+  height: 1.5rem;
+  margin-left: auto;
+  width: 3.9rem;
+}
+
+.receipt-skeleton--title {
+  height: 0.6rem;
+  margin: 0 0 variables.$unit-2;
+}
+
+.receipt-skeleton-overview {
+  display: flex;
+  flex-direction: column;
+  gap: variables.$unit-2;
+  margin-top: variables.$unit-3;
+
+  .receipt-overview & {
+    margin-top: 0;
+  }
+}
+
+.receipt-skeleton-overview-line {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
+  justify-content: center;
+  width: 100%;
+}
+
+.receipt-skeleton-amount-group {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.2rem;
+}

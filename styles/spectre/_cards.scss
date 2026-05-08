@@ -1,0 +1,43 @@
+@use "../variables";
+
+// Cards
+.card {
+  border-radius: variables.$border-radius;
+  display: flex;
+  flex-direction: column;
+
+  .card-header,
+  .card-body,
+  .card-footer {
+    padding: variables.$layout-spacing-lg;
+    padding-bottom: 0;
+
+    &:last-child {
+      padding-bottom: variables.$layout-spacing-lg;
+    }
+  }
+
+  .card-body {
+    flex: 1 1 auto;
+  }
+
+  .card-image {
+    padding-top: variables.$layout-spacing-lg;
+
+    &:first-child {
+      padding-top: 0;
+
+      img {
+        border-top-left-radius: variables.$border-radius;
+        border-top-right-radius: variables.$border-radius;
+      }
+    }
+
+    &:last-child {
+      img {
+        border-bottom-left-radius: variables.$border-radius;
+        border-bottom-right-radius: variables.$border-radius;
+      }
+    }
+  }
+}
