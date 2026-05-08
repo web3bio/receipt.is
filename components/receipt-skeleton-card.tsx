@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 function AddressSkeleton({ titleWidth }: { titleWidth: string }) {
   return (
     <div className="receipt-address">
@@ -10,10 +8,16 @@ function AddressSkeleton({ titleWidth }: { titleWidth: string }) {
       <div className="receipt-address-row">
         <div className="receipt-skeleton receipt-skeleton--avatar-lg" />
         <div className="receipt-address-body">
-          <div className="receipt-skeleton receipt-skeleton--bar-lg" />
-          <div className="receipt-skeleton receipt-skeleton--bar" />
+          <p className="receipt-address-name receipt-address-name--skeleton">
+            <span className="receipt-skeleton receipt-skeleton--bar-lg" />
+          </p>
+          <p className="receipt-address-text">
+            <span className="receipt-address-skeleton-text-fill">
+              <span className="receipt-skeleton receipt-skeleton--bar" />
+            </span>
+            <span className="receipt-skeleton receipt-skeleton--copy" />
+          </p>
         </div>
-        <div className="receipt-skeleton receipt-skeleton--copy" />
       </div>
     </div>
   );
@@ -53,7 +57,22 @@ export default function ReceiptSkeletonCard() {
       <section className="receipt-flow">
         <AddressSkeleton titleWidth="2rem" />
         <div className="btn btn-sm btn-action receipt-flow-arrow" aria-hidden>
-          <Image src="/icon-arrow.svg" alt="" width={18} height={18} />
+          <svg
+            width={18}
+            height={18}
+            viewBox="0 0 32 32"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden
+          >
+            <path
+              d="m7 16h18m0 0-8.5-8.5m8.5 8.5-8.5 8.5"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+            />
+          </svg>
         </div>
         <AddressSkeleton titleWidth="1.6rem" />
       </section>

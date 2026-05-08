@@ -88,8 +88,8 @@ body {
   border-radius: $receipt-radius-sm;
   color: variables.$dark-color;
   font-family: var(--font-geist-mono), variables.$mono-font-family;
-  font-size: 0.65rem;
-  padding: 0.05rem 0.25rem;
+  font-size: 0.8rem;
+  padding: 0.12rem 0.35rem;
 }
 
 .receipt-topbar {
@@ -176,6 +176,7 @@ body {
   border-radius: $receipt-radius;
   border-bottom-color: rgba(variables.$gray-color, 0.15);
   box-shadow: none;
+  color: $receipt-muted;
   display: inline-flex;
   height: 1.6rem;
   justify-content: center;
@@ -196,8 +197,8 @@ body {
     color: variables.$dark-color;
   }
 
-  img {
-    color: $receipt-muted;
+  svg {
+    display: block;
     transform: rotate(90deg);
   }
 }
@@ -563,6 +564,21 @@ body {
 
   > .receipt-address-mid {
     color: $receipt-muted;
+  }
+}
+
+.receipt-address-name.receipt-address-name--skeleton {
+  line-height: 0;
+}
+
+.receipt-address-skeleton-text-fill {
+  flex: 1;
+  min-width: 0;
+
+  .receipt-skeleton--bar {
+    display: block;
+    max-width: 100%;
+    width: 100%;
   }
 }
 

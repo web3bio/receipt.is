@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState } from "react";
 import { formatBlockTimestampRelative } from "@/utils/format-block-relative";
 import {
@@ -376,7 +375,22 @@ export default function TxReceiptCard({ chain, hash, data }: TxReceiptCardProps)
           avatarUrl={fromProfileView.avatarUrl}
         />
         <div className="btn btn-sm btn-action receipt-flow-arrow" aria-hidden>
-          <Image src="/icon-arrow.svg" alt="" width={18} height={18} />
+          <svg
+            width={18}
+            height={18}
+            viewBox="0 0 32 32"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden
+          >
+            <path
+              d="m7 16h18m0 0-8.5-8.5m8.5 8.5-8.5 8.5"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+            />
+          </svg>
         </div>
         <AddressCard
           title="TO"
