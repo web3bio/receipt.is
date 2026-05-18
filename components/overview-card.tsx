@@ -34,7 +34,6 @@ function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null
   if (avatarUrl) {
     return (
       <span className="avatar avatar-xs receipt-avatar-inline" aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatarUrl} alt={label} />
       </span>
     );
@@ -137,7 +136,6 @@ function SwapTokenInline({ token }: { token: SwapTokenView }) {
     <span className="receipt-overview-amount">
       {token.imageUrl ? (
         <span className="avatar avatar-xs receipt-token-strip">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={token.imageUrl}
             alt=""
@@ -230,7 +228,6 @@ export default function OverviewCard({
           <span className="receipt-overview-amount">
             {tokenLogoUrl ? (
               <span className="avatar avatar-xs receipt-token-strip">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={tokenLogoUrl}
                   alt=""

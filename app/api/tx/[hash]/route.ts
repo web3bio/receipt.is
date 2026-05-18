@@ -64,22 +64,17 @@ type TokenInfoItem = {
 };
 
 type SwapTokenItem = {
-  /** When true, native coin (ETH/BNB); `contractAddress` is null. */
   isNative: boolean;
   contractAddress: string | null;
   symbol: string;
-  /** Decimal places as string for `formatAmount`. */
   decimals: string;
-  /** Raw integer wei, not divided by 10^decimals. */
   rawAmount: string;
   tokenName?: string | null;
   image?: string | null;
 };
 
 type SwapInfo = {
-  /** Resolved DEX name, or null if unknown (UI skips `on …`). */
   dexName: string | null;
-  /** User-called router address (lowercase). */
   routerAddress: string;
   fromToken: SwapTokenItem;
   toToken: SwapTokenItem;
@@ -101,12 +96,7 @@ const NATIVE_LOGO_BY_CHAIN: Record<string, string> = {
   bsc: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png",
 };
 
-/**
- * Known DEX / aggregator router contracts (lowercase address → label).
- * Many share the same address across chains (CREATE2); list chain-specific outliers explicitly.
- */
 const DEX_ROUTERS_LOWER: Record<string, string> = {
-  // Uniswap
   "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45": "Uniswap",
   "0x66a9893cc07d91d95644aedd05d03f95e1dba8af": "Uniswap",
   "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad": "Uniswap",
@@ -115,41 +105,26 @@ const DEX_ROUTERS_LOWER: Record<string, string> = {
   "0x2626664c2603336e57b271c5c0b26f421741e481": "Uniswap",
   "0x6ff5693b99212da76ad316178a184ab56d299b43": "Uniswap",
   "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24": "Uniswap V2",
-  // 1inch
   "0x111111125421ca6dc452d289314280a0f8842a65": "1inch",
   "0x1111111254eeb25477b68fb85ed929f73a960582": "1inch",
   "0x1111111254fb6c44bac0bed2854e76f90643097d": "1inch",
-  // 0x / Matcha
   "0xdef1c0ded9bec7f1a1670819833240f027b25eff": "0x",
   "0x0000000000001ff3684f28c67538d4d072c22734": "0x",
-  // Paraswap
   "0xdef171fe48cf0115b1d80b88dc8eab59176fee57": "ParaSwap",
-  // KyberSwap
   "0x6131b5fae19ea4f9d964eac0408e4408b66337b5": "KyberSwap",
-  // CoW Swap
   "0x9008d19f58aabd9ed0d60971565aa8510560ab41": "CoW Swap",
-  // PancakeSwap (V2 / V3 routers + Universal Router on multi-chain incl. Ethereum)
   "0x10ed43c718714eb63d5aa57b78b54704e256024e": "PancakeSwap",
   "0x13f4ea83d0bd40e75c8222255bc855a974568dd4": "PancakeSwap",
   "0x1b81d678ffb9c0263b24a97847620c99d213eb14": "PancakeSwap",
   "0x1a0a18ac4becddbd6389559687d1a73d8927e416": "PancakeSwap",
   "0x65b382653f7c31bc0af67f188122035461ec9c76": "PancakeSwap",
-  // SushiSwap
   "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f": "SushiSwap",
-  // Aerodrome (Base)
   "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43": "Aerodrome",
-  // Velodrome (Optimism)
   "0xa062ae8a9c5e11aaa026fc2670b0d65ccc8b2858": "Velodrome",
-  // OpenOcean
   "0x6352a56caadc4f1e25cd6c75970fa768a3304e64": "OpenOcean",
-  // Odos
   "0xcf5540fffcdc3d510b18bfca6d2b9987b0772559": "Odos",
 };
 
-/**
- * Classify Swap-style logs into DEX family / version by topic0.
- * V2/V3 forks often share topics (Uniswap, Sushi, Pancake); Pancake V3 differs via extra protocolFees topics.
- */
 type DexSwapHit = { brand?: string; version: "V2" | "V3" | "V4" };
 
 const DEX_SWAP_TOPIC: Record<string, DexSwapHit> = {
@@ -203,7 +178,6 @@ function tokenUsdLooksValid(value: unknown): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
-/** ERC-20 `Transfer(address,address,uint256)` — amount in data, 3 indexed topics (vs 4-topic ERC-721 transfers). */
 const ERC20_TRANSFER_TOPIC0 =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
@@ -327,7 +301,7 @@ function detectExternalTxType(transaction: JsonRecord) {
   return "native_transfer";
 }
 
-type EtherscanV2Module = "proxy" | "account";
+type EtherscanV2Module = "proxy" | "account" | "contract";
 
 async function fetchEtherscanV2<T>(
   chainId: string,
@@ -364,6 +338,14 @@ async function fetchEtherscanV2<T>(
   }
 
   const payload = (await response.json()) as EtherscanAccountResponse<T>;
+
+  if (module === "contract") {
+    if (payload.status !== "1") {
+      return null;
+    }
+    return payload.result ?? null;
+  }
+
   if (payload.status === "0" && payload.message !== "No transactions found") {
     throw new Error(
       `Etherscan account error: ${payload.result ?? payload.message ?? "Unknown error"}`,
@@ -372,7 +354,6 @@ async function fetchEtherscanV2<T>(
   return payload.result;
 }
 
-/** Native / gas token last USD via Etherscan `stats` `ethprice` (field name `ethusd` on all supported v2 chains). */
 async function fetchEtherscanNativeUsd(
   chainId: string,
   apiKey: string,
@@ -429,7 +410,6 @@ function coingeckoFetchHeaders(): Record<string, string> {
   return headers;
 }
 
-/** CoinGecko public `simple/token_price`; optional `COINGECKO_API_KEY` (Demo tier) lifts rate limits. */
 async function tryCoingeckoTokenUsd(
   chain: string,
   contractLower: string,
@@ -461,10 +441,6 @@ async function tryCoingeckoTokenUsd(
   }
 }
 
-/**
- * CoinGecko `/coins/{platform}/contract/{address}` — canonical token metadata + optional USD price.
- * Metadata applies without `market_data`; USD can be filled via `tryCoingeckoTokenUsd`.
- */
 async function fetchCoingeckoTokenContractFull(
   chain: string,
   contractLower: string,
@@ -527,7 +503,54 @@ async function fetchCoingeckoTokenContractFull(
   }
 }
 
-/** Native USD via CoinGecko `simple/price`: `ethereum` or `binancecoin`. */
+type EtherscanGetSourceCodeRow = {
+  ContractName?: string;
+  ABI?: string;
+};
+
+async function fetchEtherscanVerifiedContractAsTokenInfo(
+  chainId: string,
+  apiKey: string,
+  addressLower: string,
+): Promise<TokenInfoItem | null> {
+  const addr = addressLower.toLowerCase();
+  try {
+    const result = await fetchEtherscanV2<EtherscanGetSourceCodeRow[] | string>(
+      chainId,
+      apiKey,
+      "contract",
+      "getsourcecode",
+      { address: addr },
+    );
+    if (!result || typeof result === "string" || !Array.isArray(result)) {
+      return null;
+    }
+    const row = result[0];
+    const name = row?.ContractName?.trim();
+    if (!name) {
+      return null;
+    }
+    const abi = row?.ABI?.trim() ?? "";
+    if (
+      abi === "Contract source code not verified" ||
+      abi === "Contract not yet verified"
+    ) {
+      return null;
+    }
+    return {
+      contractAddress: addr,
+      tokenName: name,
+      symbol: undefined,
+      divisor: undefined,
+      tokenType: undefined,
+      tokenPriceUSD: undefined,
+      image: undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function tryCoingeckoNativeUsd(chain: string): Promise<string | null> {
   const cgId = normalizeChain(chain) === "bsc" ? "binancecoin" : "ethereum";
   try {
@@ -648,7 +671,6 @@ async function resolveTokenInfoFromCoingecko(
   return { tokenInfo: null, contractAddress: contracts[0] ?? null };
 }
 
-/** Net ERC-20 flow per token for user: credited on transfer to user, debited when user sends out. */
 function aggregateUserNetByToken(
   transfers: Erc20TransferItem[],
   userLower: string,
@@ -726,7 +748,6 @@ async function buildSwapTokenItem(
   const hasUsableDecimals = Number.isFinite(decimalsHintN) && decimalsHintN >= 0;
   const imageHint = matchInfo?.image?.trim() || null;
 
-  /** Fetch CoinGecko metadata when logo (or decimals/symbol) missing so swap rows can show icons. */
   let extra: TokenInfoItem | null = null;
   if (!symbolHint || !hasUsableDecimals || !imageHint) {
     extra = await fetchCoingeckoTokenContractFull(chain, contractLower);
@@ -753,7 +774,6 @@ type InternalTxItem = {
   isError?: string;
 };
 
-/** Single-tx internal transfers from Etherscan v2 — only for native net flow, not shown per row. */
 async function fetchInternalNativeNetForUser(
   chainId: string,
   apiKey: string,
@@ -790,10 +810,6 @@ async function fetchInternalNativeNetForUser(
   }
 }
 
-/**
- * Swap detection for successful contract calls — combines ERC-20 net flow + `tx.value`.
- * Covers ERC-20 ↔ ERC-20, native → ERC-20, ERC-20 → native (needs `txlistinternal` aggregation for the latter).
- */
 async function detectSwap(
   chain: string,
   chainId: string,
@@ -813,9 +829,6 @@ async function detectSwap(
   const routerLower = normalizeAddress(transaction.to as string | undefined);
   if (!routerLower) return null;
 
-  /**
-   * Require known router mapping or recognizable Uniswap-class `Swap` log; filters lending/staking/LP-shaped flows.
-   */
   const knownDexRouter = DEX_ROUTERS_LOWER[routerLower] ?? null;
   const dexFromLogs = detectDexFromLogs(receipt, chain);
   if (!knownDexRouter && !dexFromLogs) return null;
@@ -828,9 +841,6 @@ async function detectSwap(
     nativeOutWei = BigInt(0);
   }
 
-  /**
-   * If `tx.from` never appears in ERC-20 legs, flows may proxy through `tx.to` (MEV/smart account): re-score net flows from router.
-   */
   const userInvolvedInTransfers = transfers.some((t) => {
     const f = normalizeAddress(t.from);
     const to = normalizeAddress(t.to);
@@ -873,7 +883,6 @@ async function detectSwap(
     inContract = bestIn.contract;
     inRaw = bestIn.amount;
   } else if (outContract) {
-    /** ERC-20 → native leg: derive native credited from internal transfers. */
     const nativeIn = await fetchInternalNativeNetForUser(
       chainId,
       apiKey,
@@ -1077,10 +1086,16 @@ export async function GET(
         tokenInfo?.contractAddress ?? tokenInfoContractAddress ?? "",
       );
       if (pricedAddr !== txToNorm) {
-        calledContract = await fetchCoingeckoTokenContractFull(
-          chain,
-          txToNorm,
-        );
+        const cg = await fetchCoingeckoTokenContractFull(chain, txToNorm);
+        if (cg?.tokenName?.trim() || cg?.symbol?.trim()) {
+          calledContract = cg;
+        } else {
+          calledContract = await fetchEtherscanVerifiedContractAsTokenInfo(
+            chainId,
+            apiKey,
+            txToNorm,
+          );
+        }
       }
     }
 

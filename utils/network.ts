@@ -23,7 +23,6 @@ export function normalizeChain(chain?: string | null) {
   return chain?.toLowerCase().trim() ?? "eth";
 }
 
-/** Full chain name for UI; unknown slug falls back to normalized string. */
 export function getChainDisplayName(chain?: string | null): string {
   const k = normalizeChain(chain) as SupportedChain;
   return CHAIN_DISPLAY_NAMES[k] ?? k;
@@ -33,7 +32,6 @@ export function getChainId(chain: string) {
   return CHAIN_TO_ID[chain as SupportedChain];
 }
 
-/** CoinGecko `simple/token_price/{platform}`; public API with optional Demo API key for rate limits. */
 export const CHAIN_TO_COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   eth: "ethereum",
   base: "base",

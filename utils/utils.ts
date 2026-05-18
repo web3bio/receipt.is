@@ -30,10 +30,6 @@ export const formatText = (string: string, length?: number): string => {
   }
 };
 
-/**
- * Human-readable method title for overview copy: `Call {phrase} Function`.
- * Uses 4byte-style `functionName` when present, else shortens `functionSelector`.
- */
 export function formatOverviewContractMethodPhrase(
   functionName?: string | null,
   functionSelector?: string | null,
@@ -59,7 +55,6 @@ export function formatOverviewContractMethodPhrase(
 
 export type BlockTimestampMode = "local" | "utc" | "unix";
 
-/** Parse Etherscan-style block timestamp: decimal or `0x` hex unix seconds. */
 export function parseBlockTimestampSeconds(
   timestampHexOrUnix?: string,
 ): number | null {
@@ -105,7 +100,6 @@ export function formatTimestamp(timestampHexOrUnix?: string) {
   return formatBlockTimestamp(timestampHexOrUnix, "local");
 }
 
-/** Block tag from RPC / Etherscan: decimal string or `0x` hex → plain integer string (no scientific notation). */
 export function formatBlockNumberReadable(raw?: string): string {
   if (raw == null || String(raw).trim() === "") return "-";
   const trimmed = String(raw).trim();
@@ -135,7 +129,6 @@ export function formatAmount(value?: string, decimals?: string) {
   }
 }
 
-/** Overview / UI: fixed 2 fraction digits with grouping (e.g. 1,234.56). */
 export function formatTokenAmountTwoDecimals(raw: string): string {
   const s = String(raw ?? "")
     .trim()
@@ -151,10 +144,6 @@ export function formatTokenAmountTwoDecimals(raw: string): string {
 
 const USD_PRICE_SCALE = 8;
 
-/**
- * USD ≈ (raw token amount × USD price per token), using chain decimals.
- * Uses BigInt so large transfers are not mangled by parseFloat on human-readable amounts.
- */
 export function formatUsdFromTokenRaw(
   valueRaw?: string | number | null,
   decimalsStr?: string | number | null,

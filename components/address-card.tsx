@@ -84,7 +84,6 @@ function Avatar({
   if (avatarUrl) {
     return (
       <span className="avatar avatar-lg receipt-avatar-squircle" aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={avatarUrl} alt={label} />
       </span>
     );
