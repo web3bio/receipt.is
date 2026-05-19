@@ -402,6 +402,18 @@ body {
   text-transform: lowercase;
 }
 
+.receipt-overview-dex {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.receipt-overview-dex-icon {
+  border-radius: 0.2rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .receipt-overview-chain {
   color: variables.$dark-color;
   font-weight: 600;

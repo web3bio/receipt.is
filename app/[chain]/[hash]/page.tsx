@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
-import ReceiptSkeletonCard from "@/components/receipt-skeleton-card";
-import TxReceiptCard, { type TxReceiptData } from "@/components/tx-receipt-card";
+import ReceiptCard, { type TxReceiptData } from "@/components/receipt-card";
+import ReceiptSkeleton from "@/components/receipt-skeleton";
 import {
+  isValidTxHash,
   normalizeChain,
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_SET,
-} from "@/utils/network";
-import { isValidTxHash } from "@/utils/tx-hash";
+} from "@/lib/chain";
 
 type PageProps = {
   params: Promise<{
@@ -95,20 +95,20 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
   }
 
   return (
-    <TxReceiptCard
+    <ReceiptCard
       chain={chainKey}
       hash={hash}
       data={{
-        type: data.type,
-        txStatus: data.txStatus,
-        functionName: data.functionName,
-        functionSelector: data.functionSelector,
-        contractAddress: data.contractAddress,
-        transaction: data.transaction,
-        receipt: data.receipt,
-        block: data.block,
-        from: data.from,
-        to: data.to,
+        type: data.type ?? "unknown",
+        txStatus: data.txStatus ?? "unknown",
+        functionName: data.functionName ?? null,
+        functionSelector: data.functionSelector ?? null,
+        contractAddress: data.contractAddress ?? null,
+        transaction: data.transaction!,
+        receipt: data.receipt ?? null,
+        block: data.block ?? null,
+        from: data.from!,
+        to: data.to!,
         erc20Transfers: {
           total: data.erc20Transfers?.total ?? 0,
           transfers: data.erc20Transfers?.transfers ?? [],
@@ -128,7 +128,7 @@ export default async function TxPage({ params }: PageProps) {
 
   return (
     <main className="receipt-page">
-      <Suspense fallback={<ReceiptSkeletonCard />}>
+      <Suspense fallback={<ReceiptSkeleton />}>
         <TxContent chain={chain} hash={hash} />
       </Suspense>
     </main>

@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { formatBlockTimestampRelative } from "@/utils/format-block-relative";
-import { formatTokenAmountTwoDecimals } from "@/utils/utils";
+import {
+  formatBlockTimestampRelative,
+  formatTokenAmountTwoDecimals,
+} from "@/lib/format";
 
 type OverviewVariant = "contract_call" | "token_transfer" | "swap";
 
@@ -26,6 +28,7 @@ export type OverviewCardProps = {
   toAvatarUrl?: string | null;
   chainName?: string;
   dexName?: string | null;
+  dexIcon?: string | null;
   swap?: { from: SwapTokenView; to: SwapTokenView } | null;
 };
 
@@ -150,7 +153,7 @@ function SwapTokenInline({ token }: { token: SwapTokenView }) {
   );
 }
 
-export default function OverviewCard({
+export default function OverviewSection({
   variant,
   methodPhrase,
   usdValue,
@@ -164,6 +167,7 @@ export default function OverviewCard({
   toAvatarUrl,
   chainName,
   dexName,
+  dexIcon,
   swap,
 }: OverviewCardProps) {
   const relativeTime = useMemo(
@@ -194,7 +198,18 @@ export default function OverviewCard({
           {dexName?.trim() ? (
             <>
               <span className="receipt-overview-prep">on</span>
-              <span className="receipt-overview-chain">{dexName}</span>
+              <span className="receipt-overview-dex">
+                {dexIcon ? (
+                  <img
+                    className="receipt-overview-dex-icon"
+                    src={dexIcon}
+                    alt=""
+                    width={14}
+                    height={14}
+                  />
+                ) : null}
+                <span className="receipt-overview-chain">{dexName}</span>
+              </span>
             </>
           ) : null}
           <span className="receipt-overview-time">{relativeTime}</span>

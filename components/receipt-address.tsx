@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { formatText } from "@/utils/utils";
+import { formatText } from "@/lib/format";
 
 type AddressCardProps = {
   title: string;
@@ -97,7 +97,7 @@ function Avatar({
   );
 }
 
-export default function AddressCard({
+export default function AddressSection({
   title,
   addressLabel,
   displayLabel,

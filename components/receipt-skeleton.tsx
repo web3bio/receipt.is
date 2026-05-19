@@ -23,7 +23,7 @@ function AddressSkeleton({ titleWidth }: { titleWidth: string }) {
   );
 }
 
-export default function ReceiptSkeletonCard() {
+export default function ReceiptSkeleton() {
   return (
     <article className="receipt-card" aria-busy="true">
       <header className="receipt-topbar">
