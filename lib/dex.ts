@@ -71,7 +71,7 @@ function pickLabel(labels: Set<string>) {
   return null;
 }
 
-function detectFromLogs(receipt: JsonRecord | null | undefined, chain: string) {
+function findBestSwapHit(receipt: JsonRecord | null | undefined): SwapHit | null {
   const logs = receipt?.logs;
   if (!Array.isArray(logs)) return null;
   let best: SwapHit | null = null;
@@ -80,27 +80,22 @@ function detectFromLogs(receipt: JsonRecord | null | undefined, chain: string) {
     if (!Array.isArray(topics) || topics.length === 0) continue;
     const hit = SWAP_TOPICS[String(topics[0]).toLowerCase()];
     if (!hit) continue;
-    if (hit.brand) {
-      best = hit;
-      break;
-    }
+    if (hit.brand) return hit;
     if (!best) best = hit;
     else if (best.version === "V2" && hit.version !== "V2") best = hit;
   }
+  return best;
+}
+
+function detectFromLogs(receipt: JsonRecord | null | undefined, chain: string) {
+  const best = findBestSwapHit(receipt);
   if (!best) return null;
   if (best.brand) return `${best.brand} ${best.version}`;
   return `${normalizeChain(chain) === "bsc" ? "PancakeSwap" : "Uniswap"} ${best.version}`;
 }
 
 export function receiptHasSwapLogs(receipt: JsonRecord | null | undefined) {
-  const logs = receipt?.logs;
-  if (!Array.isArray(logs)) return false;
-  for (const raw of logs) {
-    const topics = (raw as { topics?: unknown[] }).topics;
-    if (!Array.isArray(topics) || topics.length === 0) continue;
-    if (SWAP_TOPICS[String(topics[0]).toLowerCase()]) return true;
-  }
-  return false;
+  return findBestSwapHit(receipt) !== null;
 }
 
 export function resolveDexPlatform(

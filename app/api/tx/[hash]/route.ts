@@ -5,6 +5,7 @@ import {
   normalizeChain,
   SUPPORTED_CHAINS,
 } from "@/lib/chain";
+import { receiptErrorMessage, receiptErrorStatus } from "@/lib/tx-errors";
 import { buildTxReceipt } from "@/lib/tx-receipt";
 
 export const dynamic = "force-dynamic";
@@ -47,11 +48,8 @@ export async function GET(
     return Response.json(payload);
   } catch (error) {
     return Response.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Unknown upstream error.",
-      },
-      { status: error instanceof Error && error.message === "Transaction not found." ? 404 : 502 },
+      { error: receiptErrorMessage(error) },
+      { status: receiptErrorStatus(error) },
     );
   }
 }

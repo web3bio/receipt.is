@@ -64,7 +64,13 @@ export type TxReceiptPayload = {
   to: JsonRecord;
 };
 
-export type TxReceiptView = Omit<
+export type TxReceiptData = Omit<
   TxReceiptPayload,
   "chain" | "chainId" | "hash"
 >;
+
+export function toReceiptData(payload: TxReceiptPayload): TxReceiptData {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip route fields for the view model
+  const { chain, chainId, hash, ...data } = payload;
+  return data;
+}

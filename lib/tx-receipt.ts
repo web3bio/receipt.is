@@ -381,153 +381,135 @@ export async function buildTxReceipt(
   apiKey: string,
 ): Promise<TxReceiptPayload> {
   const chainId = getChainId(chain)!;
-    const transaction = await etherscanFetch<JsonRecord>(
+  const transaction = await etherscanFetch<JsonRecord>(
+    chainId,
+    apiKey,
+    "proxy",
+    "eth_getTransactionByHash",
+    { txhash: hash },
+  );
+
+  if (!transaction) {
+    throw new Error("Transaction not found.");
+  }
+
+  const blockNumber = (transaction.blockNumber as string | undefined) ?? null;
+
+  const [receipt, block] = await Promise.all([
+    etherscanFetch<JsonRecord>(
       chainId,
       apiKey,
       "proxy",
-      "eth_getTransactionByHash",
+      "eth_getTransactionReceipt",
       { txhash: hash },
+    ),
+    blockNumber
+      ? etherscanFetch<JsonRecord>(chainId, apiKey, "proxy", "eth_getBlockByNumber", {
+          tag: blockNumber,
+          boolean: "false",
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const input = String(transaction.input ?? "0x");
+  const isContractCall =
+    Boolean(transaction.to) && input !== "0x" && input !== "0x0";
+  const functionSelector = isContractCall ? input.slice(0, 10) : null;
+  const functionName = functionSelector
+    ? await resolveFunctionName(functionSelector)
+    : null;
+  const contractAddress =
+    (receipt?.contractAddress as string | null | undefined) ??
+    (transaction.to as string | null | undefined) ??
+    null;
+
+  const erc20Addresses = uniqAddresses([
+    transaction.from as string | undefined,
+    transaction.to as string | undefined,
+    (receipt?.contractAddress as string | undefined) ?? undefined,
+  ]);
+  const tokentxTransfers =
+    erc20Addresses.length > 0
+      ? await fetchErc20TransfersForTx(chainId, apiKey, hash, erc20Addresses)
+      : [];
+  const blockTs = (block?.timestamp as string | undefined) ?? undefined;
+  const logTransfers = parseLogTransfers(receipt, hash, {
+    blockNumber,
+    timeStamp: blockTs,
+  });
+  const erc20Transfers = mergeTransfers(tokentxTransfers, logTransfers);
+  const { tokenInfo, contractAddress: tokenInfoContractAddress } =
+    await resolveTokenInfoFromTransfers(
+      chain,
+      uniqAddresses(erc20Transfers.map((t) => t.contractAddress)),
     );
+  const externalType = detectTxType(transaction);
 
-    if (!transaction) {
-      throw new Error("Transaction not found.");
-    }
-
-    const blockNumber = (transaction.blockNumber as string | undefined) ?? null;
-
-    const [receipt, block] = await Promise.all([
-      etherscanFetch<JsonRecord>(
-        chainId,
-        apiKey,
-        "proxy",
-        "eth_getTransactionReceipt",
-        {
-          txhash: hash,
-        },
-      ),
-      blockNumber
-        ? etherscanFetch<JsonRecord>(
-            chainId,
-            apiKey,
-            "proxy",
-            "eth_getBlockByNumber",
-            {
-              tag: blockNumber,
-              boolean: "false",
-            },
-          )
-        : Promise.resolve(null),
-    ]);
-
-    const input = String(transaction.input ?? "0x");
-    const isContractCall =
-      Boolean(transaction.to) && input !== "0x" && input !== "0x0";
-    const functionSelector = isContractCall ? input.slice(0, 10) : null;
-    const functionName = functionSelector
-      ? await resolveFunctionName(functionSelector)
-      : null;
-    const contractAddress =
-      (receipt?.contractAddress as string | null | undefined) ??
-      (transaction.to as string | null | undefined) ??
-      null;
-
-    const erc20Addresses = uniqAddresses([
-      transaction.from as string | undefined,
-      transaction.to as string | undefined,
-      (receipt?.contractAddress as string | undefined) ?? undefined,
-    ]);
-    const tokentxTransfers =
-      erc20Addresses.length > 0
-        ? await fetchErc20TransfersForTx(
-            chainId,
-            apiKey,
-            hash,
-            erc20Addresses,
-          )
-        : [];
-    const blockTs = (block?.timestamp as string | undefined) ?? undefined;
-    const logTransfers = parseLogTransfers(receipt, hash, {
-      blockNumber,
-      timeStamp: blockTs,
-    });
-    const erc20Transfers = mergeTransfers(
-      tokentxTransfers,
-      logTransfers,
+  const txToRaw = (transaction.to as string | undefined) ?? "";
+  const txToNorm = normalizeAddress(txToRaw);
+  let calledContract: TokenInfo | null = null;
+  if (
+    externalType === "contract_call" &&
+    txToNorm &&
+    erc20Transfers.length === 0
+  ) {
+    const pricedAddr = normalizeAddress(
+      tokenInfo?.contractAddress ?? tokenInfoContractAddress ?? "",
     );
-    const { tokenInfo, contractAddress: tokenInfoContractAddress } =
-      await resolveTokenInfoFromTransfers(
-        chain,
-        uniqAddresses(erc20Transfers.map((t) => t.contractAddress)),
-      );
-    const externalType = detectTxType(transaction);
-
-    const txToRaw = (transaction.to as string | undefined) ?? "";
-    const txToNorm = normalizeAddress(txToRaw);
-    let calledContract: TokenInfo | null = null;
-    if (
-      externalType === "contract_call" &&
-      txToNorm &&
-      erc20Transfers.length === 0
-    ) {
-      const pricedAddr = normalizeAddress(
-        tokenInfo?.contractAddress ?? tokenInfoContractAddress ?? "",
-      );
-      if (pricedAddr !== txToNorm) {
-        const cg = await fetchTokenInfo(chain, txToNorm);
-        if (cg?.tokenName?.trim() || cg?.symbol?.trim()) {
-          calledContract = cg;
-        } else {
-          const verified = await fetchVerifiedContractName(
-            chainId,
-            txToNorm,
-            apiKey,
-          );
-          if (verified) {
-            calledContract = contractNameToTokenInfo(txToNorm, verified);
-          }
+    if (pricedAddr !== txToNorm) {
+      const cg = await fetchTokenInfo(chain, txToNorm);
+      if (cg?.tokenName?.trim() || cg?.symbol?.trim()) {
+        calledContract = cg;
+      } else {
+        const verified = await fetchVerifiedContractName(
+          chainId,
+          txToNorm,
+          apiKey,
+        );
+        if (verified) {
+          calledContract = contractNameToTokenInfo(txToNorm, verified);
         }
       }
     }
+  }
 
-    let ethUsd: string | null = null;
-    if (externalType === "native_transfer" && erc20Transfers.length === 0) {
-      const cgNative = await cgNativeUsd(chain);
-      ethUsd =
-        cgNative ?? (await fetchNativeUsd(chainId, apiKey));
-    }
+  let ethUsd: string | null = null;
+  if (externalType === "native_transfer" && erc20Transfers.length === 0) {
+    const cgNative = await cgNativeUsd(chain);
+    ethUsd = cgNative ?? (await fetchNativeUsd(chainId, apiKey));
+  }
 
-    const txStatus = mapTxStatus(
-      (receipt?.status as string | undefined) ?? undefined,
-    );
-    const swap =
-      externalType === "contract_call"
-        ? await detectSwap(
-            chain,
-            chainId,
-            apiKey,
-            hash,
-            transaction,
-            receipt,
-            txStatus,
-            erc20Transfers,
-            tokenInfo,
-            tokenInfoContractAddress,
-          )
-        : null;
-
-    const sanitizedReceipt = receipt
-      ? Object.fromEntries(
-          Object.entries(receipt).filter(([key]) => key !== "logs"),
+  const txStatus = mapTxStatus((receipt?.status as string | undefined) ?? undefined);
+  const swap =
+    externalType === "contract_call"
+      ? await detectSwap(
+          chain,
+          chainId,
+          apiKey,
+          hash,
+          transaction,
+          receipt,
+          txStatus,
+          erc20Transfers,
+          tokenInfo,
+          tokenInfoContractAddress,
         )
       : null;
-    const fromAddress = (transaction.from as string | undefined) ?? "";
-    const toAddress = (transaction.to as string | undefined) ?? "";
-    const [fromProfile, toProfile] = await Promise.all([
-      resolveNsProfile(fromAddress),
-      toAddress
-        ? resolveNsProfile(toAddress)
-        : Promise.resolve({ address: [] }),
-    ]);
+
+  const sanitizedReceipt = receipt
+    ? Object.fromEntries(
+        Object.entries(receipt).filter(([key]) => key !== "logs"),
+      )
+    : null;
+  const fromAddress = (transaction.from as string | undefined) ?? "";
+  const toAddress = (transaction.to as string | undefined) ?? "";
+  const [fromProfile, toProfile] = await Promise.all([
+    resolveNsProfile(fromAddress),
+    toAddress
+      ? resolveNsProfile(toAddress)
+      : Promise.resolve({ address: [] }),
+  ]);
+
   return {
     chain,
     chainId,
@@ -550,3 +532,4 @@ export async function buildTxReceipt(
     to: toProfile,
   };
 }
+

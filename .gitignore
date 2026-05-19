@@ -23,6 +23,10 @@
 # misc
 .DS_Store
 *.pem
+_tmp_*
+.agents/
+skills-lock.json
+scripts/debug-tx.mjs
 
 # debug
 npm-debug.log*

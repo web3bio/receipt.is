@@ -1,4 +1,4 @@
-import type { Erc20Transfer, JsonRecord } from "@/lib/types";
+import type { Erc20Transfer } from "@/lib/types";
 import { normalizeAddress } from "@/lib/chain";
 
 const API = "https://api.etherscan.io/v2/api";
@@ -79,34 +79,44 @@ export async function fetchNativeUsd(
   }
 }
 
+function erc20TransferKey(item: Erc20Transfer) {
+  return [
+    item.hash ?? "",
+    item.contractAddress ?? "",
+    item.from ?? "",
+    item.to ?? "",
+    item.value ?? "",
+    item.transactionIndex ?? "",
+  ].join("|");
+}
+
 export async function fetchErc20TransfersForTx(
   chainId: string,
   apiKey: string,
   hash: string,
   addresses: string[],
 ): Promise<Erc20Transfer[]> {
+  if (addresses.length === 0) return [];
+
   const lowerHash = hash.toLowerCase();
+  const results = await Promise.all(
+    addresses.map((address) =>
+      etherscanFetch<Erc20Transfer[] | string>(chainId, apiKey, "account", "tokentx", {
+        address,
+        page: "1",
+        offset: "100",
+        sort: "desc",
+      }),
+    ),
+  );
+
   const merged: Erc20Transfer[] = [];
   const seen = new Set<string>();
-  for (const address of addresses) {
-    const result = await etherscanFetch<Erc20Transfer[] | string>(
-      chainId,
-      apiKey,
-      "account",
-      "tokentx",
-      { address, page: "1", offset: "100", sort: "desc" },
-    );
+  for (const result of results) {
     const list = Array.isArray(result) ? result : [];
     for (const item of list) {
       if ((item.hash ?? "").toLowerCase() !== lowerHash) continue;
-      const key = [
-        item.hash ?? "",
-        item.contractAddress ?? "",
-        item.from ?? "",
-        item.to ?? "",
-        item.value ?? "",
-        item.transactionIndex ?? "",
-      ].join("|");
+      const key = erc20TransferKey(item);
       if (seen.has(key)) continue;
       seen.add(key);
       merged.push(item);
@@ -189,4 +199,3 @@ export async function fetchVerifiedContractName(
   }
 }
 
-export type { JsonRecord };

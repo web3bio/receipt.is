@@ -21,11 +21,9 @@ import {
   parseProfile,
   type BlockTimestampMode,
 } from "@/lib/format";
-import type { SwapToken, TokenInfo, TxReceiptData } from "@/lib/receipt-types";
+import type { SwapToken, TokenInfo, TxReceiptData } from "@/lib/types";
 import OverviewSection from "@/components/receipt-overview";
 import AddressSection from "@/components/receipt-address";
-
-export type { TxReceiptData };
 
 type ProfileView = {
   identityText: string;
