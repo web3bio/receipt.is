@@ -8,23 +8,26 @@
     "start": "next start",
     "deploy": "opennextjs-cloudflare build && wrangler deploy --keep-vars",
     "preview": "rm -rf .open-next && opennextjs-cloudflare build && opennextjs-cloudflare preview --remote --port 3000",
-    "staging": "opennextjs-cloudflare build && wrangler versions upload",
-    "lint": "eslint"
+    "staging": "opennextjs-cloudflare build && wrangler versions upload --keep-vars",
+    "lint": "eslint",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
-    "next": "16.2.4",
+    "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "web3bio-profile-kit": "^0.2.9"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.19.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.2.6",
     "sass": "^1.99.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.0.0"
   }
 }
