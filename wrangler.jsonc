@@ -16,7 +16,4 @@
       "service": "receipt-is"
     }
   ],
-  "observability": {
-    "enabled": true
-  }
 }
