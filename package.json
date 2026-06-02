@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "deploy": "opennextjs-cloudflare build && wrangler deploy --keep-vars",
+    "preview": "rm -rf .open-next && opennextjs-cloudflare build && opennextjs-cloudflare preview --remote --port 3000",
+    "staging": "opennextjs-cloudflare build && wrangler versions upload",
     "lint": "eslint"
   },
   "dependencies": {
