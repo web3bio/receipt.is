@@ -55,7 +55,7 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
   }
 
   const apiKey = process.env.ETHERSCAN_API_KEY;
-  if (!apiKey) {
+  if (chainKey !== "lens" && !apiKey) {
     return (
       <ErrorState message="Missing ETHERSCAN_API_KEY in environment variables." />
     );

@@ -16,6 +16,14 @@ function headers(): Record<string, string> {
   return h;
 }
 
+function options(chain: string): RequestInit {
+  return {
+    cache: "no-store",
+    headers: headers(),
+    signal: normalizeChain(chain) === "lens" ? AbortSignal.timeout(3_000) : undefined,
+  };
+}
+
 function tokenUsdValid(value: unknown) {
   if (value == null) return false;
   const n = Number.parseFloat(
@@ -33,7 +41,7 @@ export async function fetchTokenUsd(
   const addr = contractLower.toLowerCase();
   try {
     const url = `https://api.coingecko.com/api/v3/simple/token_price/${platform}?contract_addresses=${encodeURIComponent(addr)}&vs_currencies=usd`;
-    const response = await fetch(url, { cache: "no-store", headers: headers() });
+    const response = await fetch(url, options(chain));
     if (!response.ok) return null;
     const payload = (await response.json()) as Record<string, { usd?: number }>;
     const usd = (payload[addr] ?? payload[contractLower])?.usd;
@@ -52,7 +60,7 @@ export async function fetchTokenInfo(
   const addr = contractLower.toLowerCase();
   try {
     const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(platform)}/contract/${encodeURIComponent(addr)}`;
-    const response = await fetch(url, { cache: "no-store", headers: headers() });
+    const response = await fetch(url, options(chain));
     if (!response.ok) return null;
     const payload = (await response.json()) as {
       name?: string;
@@ -92,11 +100,12 @@ export async function fetchTokenInfo(
 }
 
 export async function fetchNativeUsd(chain: string): Promise<string | null> {
-  const cgId = normalizeChain(chain) === "bsc" ? "binancecoin" : "ethereum";
+  const chainKey = normalizeChain(chain);
+  const cgId = chainKey === "lens" ? "gho" : chainKey === "bsc" ? "binancecoin" : "ethereum";
   try {
     const response = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(cgId)}&vs_currencies=usd`,
-      { cache: "no-store", headers: headers() },
+      options(chain),
     );
     if (!response.ok) return null;
     const payload = (await response.json()) as Record<string, { usd?: number }>;

@@ -146,15 +146,14 @@ export default function ReceiptCard({
   const toAddress = tx.to as string | undefined;
   const txStatus = data.txStatus;
   const pricingTransfer = resolvePricingTransfer(data);
-  const nativePricing =
+  const nativeTransfer =
     data.type === "native_transfer" &&
-    Boolean(data.ethUsd?.trim()) &&
     hasNonZeroWei(tx.value);
 
-  const tokenSymbol = nativePricing
+  const tokenSymbol = nativeTransfer
     ? getNativeSymbol(chain)
     : (data.tokenInfo?.symbol ?? pricingTransfer?.tokenSymbol ?? "TOKEN");
-  const decimalsForUsd = nativePricing
+  const decimalsForUsd = nativeTransfer
     ? "18"
     : (() => {
         const td = pricingTransfer?.tokenDecimal;
@@ -165,7 +164,7 @@ export default function ReceiptCard({
         if (Number.isFinite(divN) && divN > 0) return String(div);
         return td ?? div ?? undefined;
       })();
-  const amount = nativePricing
+  const amount = nativeTransfer
     ? formatAmount(String(tx.value), "18")
     : formatAmount(pricingTransfer?.value, decimalsForUsd);
   const blockTs = block.timestamp as string | undefined;
@@ -188,14 +187,14 @@ export default function ReceiptCard({
         ? `${blockNumberReadable} (Confirmed)`
         : blockNumberReadable;
   const explorerUrl = getExplorerTxUrl(chain, hash);
-  const usdValue = nativePricing
+  const usdValue = nativeTransfer
     ? formatUsdFromTokenRaw(String(tx.value), "18", data.ethUsd)
     : formatUsdFromTokenRaw(
         pricingTransfer?.value,
         decimalsForUsd,
         data.tokenInfo?.tokenPriceUSD,
       );
-  const tokenLogoUrl = nativePricing
+  const tokenLogoUrl = nativeTransfer
     ? getNativeLogoUrl(chain)
     : (data.tokenInfo?.image ?? null);
 

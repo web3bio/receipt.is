@@ -4,6 +4,7 @@ export const CHAIN_TO_ID = {
   bsc: "56",
   arb: "42161",
   op: "10",
+  lens: "232",
 } as const;
 
 export type SupportedChain = keyof typeof CHAIN_TO_ID;
@@ -14,6 +15,7 @@ const CHAIN_NAMES: Record<SupportedChain, string> = {
   bsc: "BNB Chain",
   arb: "Arbitrum",
   op: "Optimism",
+  lens: "Lens",
 };
 
 const COINGECKO_PLATFORM: Record<SupportedChain, string> = {
@@ -22,6 +24,7 @@ const COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   bsc: "binance-smart-chain",
   arb: "arbitrum-one",
   op: "optimistic-ethereum",
+  lens: "lens",
 };
 
 const EXPLORER_TX: Record<SupportedChain, string> = {
@@ -30,6 +33,7 @@ const EXPLORER_TX: Record<SupportedChain, string> = {
   bsc: "https://bscscan.com/tx/",
   arb: "https://arbiscan.io/tx/",
   op: "https://optimistic.etherscan.io/tx/",
+  lens: "https://explorer.lens.xyz/tx/",
 };
 
 const NATIVE_SYMBOL: Record<SupportedChain, string> = {
@@ -38,6 +42,7 @@ const NATIVE_SYMBOL: Record<SupportedChain, string> = {
   arb: "ETH",
   op: "ETH",
   bsc: "BNB",
+  lens: "GHO",
 };
 
 const NATIVE_LOGO: Record<SupportedChain, string> = {
@@ -46,6 +51,7 @@ const NATIVE_LOGO: Record<SupportedChain, string> = {
   arb: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
   op: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
   bsc: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png",
+  lens: "https://coin-images.coingecko.com/coins/images/30663/small/gho-token-logo.png",
 };
 
 export const SUPPORTED_CHAINS = Object.keys(CHAIN_TO_ID) as SupportedChain[];

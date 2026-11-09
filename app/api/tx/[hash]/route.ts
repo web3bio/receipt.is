@@ -37,7 +37,7 @@ export async function GET(
       );
     }
 
-    if (!apiKey) {
+    if (chain !== "lens" && !apiKey) {
       return Response.json(
         { error: "Missing ETHERSCAN_API_KEY in environment variables." },
         { status: 500 },

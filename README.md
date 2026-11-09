@@ -2,6 +2,16 @@
 
 Transaction receipt viewer for EVM chains.
 
+## Lens
+
+Lens mainnet (`lens`, chain ID 232) uses the same receipt page and API as the
+other chains: `/lens/<txHash>` and `/api/tx/<txHash>?chain=lens`.
+
+The default RPC is `https://rpc.lens.xyz`. Set the server-side `LENS_RPC_URL`
+to override it. Lens does not use `ETHERSCAN_API_KEY`. Native transfers are shown
+in GHO; ERC-20 transfers come from receipt logs. Swaps that require internal
+native transfer traces may be shown as regular contract calls.
+
 ## Deploy (CI)
 
 | Workflow | Trigger | Result |

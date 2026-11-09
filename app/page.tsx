@@ -1,3 +1,5 @@
+import { SUPPORTED_CHAINS } from "@/lib/chain";
+
 export default function Home() {
   return (
     <main className="receipt-page">
@@ -12,7 +14,7 @@ export default function Home() {
           .
         </p>
         <p className="receipt-intro-text receipt-intro-muted">
-          chain: eth, base, bsc, arb, op
+          chain: {SUPPORTED_CHAINS.join(", ")}
         </p>
       </article>
     </main>

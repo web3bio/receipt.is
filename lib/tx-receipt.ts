@@ -17,6 +17,7 @@ import {
   fetchInternalNativeNet,
   fetchNativeUsd,
 } from "@/lib/etherscan";
+import { lensRpc } from "@/lib/lens-rpc";
 import type {
   Erc20Transfer,
   JsonRecord,
@@ -28,6 +29,8 @@ import type {
 
 const ERC20_TRANSFER =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const LENS_NATIVE_TOKEN = "0x000000000000000000000000000000000000800a";
+const LENS_ENRICHMENT_TIMEOUT_MS = 3_000;
 
 function transferKey(item: Erc20Transfer) {
   let valueNorm: string;
@@ -53,7 +56,7 @@ function topicAddress(topic: string) {
 function parseLogTransfers(
   receipt: JsonRecord | null | undefined,
   txHash: string,
-  ctx: { blockNumber?: string | null; timeStamp?: string | null },
+  ctx: { blockNumber?: string | null; timeStamp?: string | null; nativeToken?: string },
 ): Erc20Transfer[] {
   const logs = receipt?.logs;
   if (!Array.isArray(logs)) return [];
@@ -74,7 +77,7 @@ function parseLogTransfers(
     const toA = topicAddress(String(topics[2]));
     if (!fromA || !toA) continue;
     const contractAddress = normalizeAddress(String(log.address ?? ""));
-    if (!contractAddress.startsWith("0x")) continue;
+    if (!contractAddress.startsWith("0x") || contractAddress === ctx.nativeToken) continue;
     let valueStr: string;
     try {
       valueStr = BigInt(String(log.data ?? "0x0")).toString();
@@ -220,15 +223,13 @@ async function buildSwapToken(
 
 async function detectSwap(
   chain: string,
-  chainId: string,
-  apiKey: string,
-  hash: string,
   transaction: JsonRecord,
   receipt: JsonRecord | null | undefined,
   txStatus: string,
   transfers: Erc20Transfer[],
   knownTokenInfo: TokenInfo | null,
   knownTokenInfoContract: string | null,
+  loadInternalNativeNet?: (address: string) => Promise<bigint>,
 ): Promise<SwapInfo | null> {
   if (txStatus !== "success") return null;
 
@@ -294,13 +295,8 @@ async function detectSwap(
   if (bestIn) {
     inContract = bestIn.contract;
     inRaw = bestIn.amount;
-  } else if (outContract) {
-    const nativeIn = await fetchInternalNativeNet(
-      chainId,
-      apiKey,
-      hash,
-      effectiveUser,
-    );
+  } else if (outContract && loadInternalNativeNet) {
+    const nativeIn = await loadInternalNativeNet(effectiveUser);
     if (nativeIn <= BigInt(0)) return null;
     inContract = null;
     inRaw = nativeIn;
@@ -329,12 +325,12 @@ async function detectSwap(
   };
 }
 
-async function resolveFunctionName(functionSelector: string) {
+async function resolveFunctionName(functionSelector: string, signal?: AbortSignal) {
   const response = await fetch(
     `https://www.4byte.directory/api/v1/signatures/?hex_signature=${encodeURIComponent(
       functionSelector,
     )}`,
-    { cache: "no-store" },
+    { cache: "no-store", signal },
   );
 
   if (!response.ok) return null;
@@ -348,6 +344,7 @@ async function resolveFunctionName(functionSelector: string) {
 
 async function resolveNsProfile(
   address: string,
+  signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
   const normalizedAddress = normalizeAddress(address);
   if (!normalizedAddress) {
@@ -357,6 +354,7 @@ async function resolveNsProfile(
   try {
     const response = await fetch(
       `https://api.web3.bio/ns/ens/${encodeURIComponent(normalizedAddress)}`,
+      { signal },
     );
 
     if (!response.ok) {
@@ -378,16 +376,19 @@ async function resolveNsProfile(
 export async function buildTxReceipt(
   chain: string,
   hash: string,
-  apiKey: string,
+  apiKey?: string,
 ): Promise<TxReceiptPayload> {
   const chainId = getChainId(chain)!;
-  const transaction = await etherscanFetch<JsonRecord>(
-    chainId,
-    apiKey,
-    "proxy",
-    "eth_getTransactionByHash",
-    { txhash: hash },
-  );
+  const isLens = chain === "lens";
+  const etherscanKey = isLens ? undefined : apiKey;
+  if (!isLens && !etherscanKey) {
+    throw new Error("Missing ETHERSCAN_API_KEY in environment variables.");
+  }
+  const transaction = etherscanKey
+    ? await etherscanFetch<JsonRecord>(
+        chainId, etherscanKey, "proxy", "eth_getTransactionByHash", { txhash: hash },
+      )
+    : await lensRpc("eth_getTransactionByHash", [hash]);
 
   if (!transaction) {
     throw new Error("Transaction not found.");
@@ -396,27 +397,32 @@ export async function buildTxReceipt(
   const blockNumber = (transaction.blockNumber as string | undefined) ?? null;
 
   const [receipt, block] = await Promise.all([
-    etherscanFetch<JsonRecord>(
-      chainId,
-      apiKey,
-      "proxy",
-      "eth_getTransactionReceipt",
-      { txhash: hash },
-    ),
+    etherscanKey
+      ? etherscanFetch<JsonRecord>(chainId, etherscanKey, "proxy", "eth_getTransactionReceipt", { txhash: hash })
+      : lensRpc("eth_getTransactionReceipt", [hash]),
     blockNumber
-      ? etherscanFetch<JsonRecord>(chainId, apiKey, "proxy", "eth_getBlockByNumber", {
-          tag: blockNumber,
-          boolean: "false",
-        })
+      ? etherscanKey
+        ? etherscanFetch<JsonRecord>(chainId, etherscanKey, "proxy", "eth_getBlockByNumber", {
+            tag: blockNumber,
+            boolean: "false",
+          })
+        : lensRpc("eth_getBlockByNumber", [blockNumber, false])
       : Promise.resolve(null),
   ]);
 
+  if (isLens && blockNumber && (!receipt || !block)) {
+    throw new Error("Lens receipt or block is temporarily unavailable.");
+  }
+
+  const enrichmentSignal = isLens ? AbortSignal.timeout(LENS_ENRICHMENT_TIMEOUT_MS) : undefined;
   const input = String(transaction.input ?? "0x");
   const isContractCall =
     Boolean(transaction.to) && input !== "0x" && input !== "0x0";
   const functionSelector = isContractCall ? input.slice(0, 10) : null;
   const functionName = functionSelector
-    ? await resolveFunctionName(functionSelector)
+    ? isLens
+      ? await resolveFunctionName(functionSelector, enrichmentSignal).catch(() => null)
+      : await resolveFunctionName(functionSelector)
     : null;
   const contractAddress =
     (receipt?.contractAddress as string | null | undefined) ??
@@ -429,19 +435,21 @@ export async function buildTxReceipt(
     (receipt?.contractAddress as string | undefined) ?? undefined,
   ]);
   const tokentxTransfers =
-    erc20Addresses.length > 0
-      ? await fetchErc20TransfersForTx(chainId, apiKey, hash, erc20Addresses)
+    etherscanKey && erc20Addresses.length > 0
+      ? await fetchErc20TransfersForTx(chainId, etherscanKey, hash, erc20Addresses)
       : [];
   const blockTs = (block?.timestamp as string | undefined) ?? undefined;
   const logTransfers = parseLogTransfers(receipt, hash, {
     blockNumber,
     timeStamp: blockTs,
+    nativeToken: isLens ? LENS_NATIVE_TOKEN : undefined,
   });
   const erc20Transfers = mergeTransfers(tokentxTransfers, logTransfers);
+  const tokenContracts = uniqAddresses(erc20Transfers.map((t) => t.contractAddress));
   const { tokenInfo, contractAddress: tokenInfoContractAddress } =
     await resolveTokenInfoFromTransfers(
       chain,
-      uniqAddresses(erc20Transfers.map((t) => t.contractAddress)),
+      isLens ? tokenContracts.slice(0, 3) : tokenContracts,
     );
   const externalType = detectTxType(transaction);
 
@@ -460,11 +468,11 @@ export async function buildTxReceipt(
       const cg = await fetchTokenInfo(chain, txToNorm);
       if (cg?.tokenName?.trim() || cg?.symbol?.trim()) {
         calledContract = cg;
-      } else {
+      } else if (etherscanKey) {
         const verified = await fetchVerifiedContractName(
           chainId,
           txToNorm,
-          apiKey,
+          etherscanKey,
         );
         if (verified) {
           calledContract = contractNameToTokenInfo(txToNorm, verified);
@@ -476,7 +484,7 @@ export async function buildTxReceipt(
   let ethUsd: string | null = null;
   if (externalType === "native_transfer" && erc20Transfers.length === 0) {
     const cgNative = await cgNativeUsd(chain);
-    ethUsd = cgNative ?? (await fetchNativeUsd(chainId, apiKey));
+    ethUsd = cgNative ?? (etherscanKey ? await fetchNativeUsd(chainId, etherscanKey) : null);
   }
 
   const txStatus = mapTxStatus((receipt?.status as string | undefined) ?? undefined);
@@ -484,15 +492,15 @@ export async function buildTxReceipt(
     externalType === "contract_call"
       ? await detectSwap(
           chain,
-          chainId,
-          apiKey,
-          hash,
           transaction,
           receipt,
           txStatus,
           erc20Transfers,
           tokenInfo,
           tokenInfoContractAddress,
+          etherscanKey
+            ? (address) => fetchInternalNativeNet(chainId, etherscanKey, hash, address)
+            : undefined,
         )
       : null;
 
@@ -504,9 +512,9 @@ export async function buildTxReceipt(
   const fromAddress = (transaction.from as string | undefined) ?? "";
   const toAddress = (transaction.to as string | undefined) ?? "";
   const [fromProfile, toProfile] = await Promise.all([
-    resolveNsProfile(fromAddress),
+    resolveNsProfile(fromAddress, enrichmentSignal),
     toAddress
-      ? resolveNsProfile(toAddress)
+      ? resolveNsProfile(toAddress, enrichmentSignal)
       : Promise.resolve({ address: [] }),
   ]);
 
