@@ -256,8 +256,14 @@ export default function OverviewSection({
           </span>
         </p>
         <p className="receipt-overview-line receipt-overview-line--sub">
-          <span className="receipt-overview-prep">to</span>
-          <IdentityInline label={toIdentityText} avatarUrl={toAvatarUrl} />
+          <span className="receipt-identity">
+            <span className="receipt-overview-prep">from</span>
+            <IdentityInline label={fromIdentityText} avatarUrl={fromAvatarUrl} />
+          </span>
+          <span className="receipt-identity">
+            <span className="receipt-overview-prep">to</span>
+            <IdentityInline label={toIdentityText} avatarUrl={toAvatarUrl} />
+          </span>
           <span className="receipt-overview-time">{relativeTime}</span>
         </p>
       </>
