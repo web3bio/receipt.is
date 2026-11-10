@@ -13,11 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Web3.bio receipt",
-  description: "Web3.bio receipt",
+  title: "Web3 Receipt",
+  description: "Web3 Receipt",
   openGraph: {
-    title: "Web3.bio receipt",
-    description: "web3.bio receipt",
+    title: "Web3 Receipt",
+    description: "Web3 Receipt",
   },
 };
 
