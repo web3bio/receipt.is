@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import ReceiptAvatar from "@/components/receipt-avatar";
 import {
   formatBlockTimestampRelative,
   formatTokenAmountTwoDecimals,
@@ -32,24 +33,6 @@ export type OverviewCardProps = {
   swap?: { from: SwapTokenView; to: SwapTokenView } | null;
 };
 
-function Avatar({ label, avatarUrl }: { label: string; avatarUrl?: string | null }) {
-  const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
-  if (avatarUrl) {
-    return (
-      <span className="avatar avatar-xs receipt-avatar-inline" aria-hidden>
-        <img src={avatarUrl} alt={label} />
-      </span>
-    );
-  }
-  return (
-    <span
-      className="avatar avatar-xs receipt-avatar-inline"
-      aria-hidden
-      data-initial={text}
-    />
-  );
-}
-
 function IdentityInline({
   label,
   avatarUrl,
@@ -59,7 +42,11 @@ function IdentityInline({
 }) {
   return (
     <span className="receipt-identity">
-      <Avatar label={label} avatarUrl={avatarUrl} />
+      <ReceiptAvatar
+        className="avatar avatar-xs receipt-avatar-inline"
+        label={label}
+        avatarUrl={avatarUrl}
+      />
       <span className="receipt-identity-text">{label}</span>
     </span>
   );
@@ -175,10 +162,10 @@ export default function OverviewSection({
     [blockTimestamp],
   );
   const displayAmount = useMemo(
-    () => formatTokenAmountTwoDecimals(amount),
+    () => amount === "-" ? "—" : formatTokenAmountTwoDecimals(amount),
     [amount],
   );
-  const showUsd = Boolean(usdValue?.trim());
+  const price = usdValue.trim();
   const title = (methodPhrase ?? "").trim() || "Contract";
 
   const flow =
@@ -270,9 +257,9 @@ export default function OverviewSection({
     );
 
   return (
-    <section className="receipt-overview">
-      {showUsd ? <UsdPriceRow value={usdValue.trim()} /> : null}
-      <div className="receipt-overview-flow">{flow}</div>
+    <section className="receipt-overview" data-receipt-drag data-variant={variant}>
+      {price && price !== "-" ? <UsdPriceRow value={price} /> : null}
+      <div className="receipt-overview-flow" data-receipt-drag>{flow}</div>
     </section>
   );
 }

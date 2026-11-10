@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import ReceiptCard from "@/components/receipt-card";
 import ReceiptSkeleton from "@/components/receipt-skeleton";
@@ -8,8 +9,9 @@ import {
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_SET,
 } from "@/lib/chain";
+import { getPublicRpcUrl } from "@/lib/evm-rpc";
 import { receiptErrorMessage } from "@/lib/tx-errors";
-import { buildTxReceipt } from "@/lib/tx-receipt";
+import { getCachedTxReceipt } from "@/lib/tx-receipt-cache";
 import { toReceiptData, type TxReceiptData } from "@/lib/types";
 
 type PageProps = {
@@ -55,7 +57,7 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
   }
 
   const apiKey = process.env.ETHERSCAN_API_KEY;
-  if (chainKey !== "lens" && !apiKey) {
+  if (!getPublicRpcUrl(chainKey) && !apiKey) {
     return (
       <ErrorState message="Missing ETHERSCAN_API_KEY in environment variables." />
     );
@@ -63,7 +65,8 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
 
   let receiptData: TxReceiptData;
   try {
-    receiptData = toReceiptData(await buildTxReceipt(chainKey, hash, apiKey));
+    const host = (await headers()).get("host");
+    receiptData = toReceiptData(await getCachedTxReceipt(chainKey, hash, apiKey, host));
   } catch (error) {
     return <ErrorState message={receiptErrorMessage(error)} />;
   }
@@ -75,7 +78,7 @@ export default async function TxPage({ params }: PageProps) {
   const { chain, hash } = await params;
 
   return (
-    <main className="receipt-page">
+    <main className="receipt-page" data-chain={normalizeChain(chain)}>
       <Suspense fallback={<ReceiptSkeleton />}>
         <TxContent chain={chain} hash={hash} />
       </Suspense>

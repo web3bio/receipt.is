@@ -11,22 +11,38 @@ Transaction receipt viewer for EVM chains.
 | BNB Chain | `bsc` | 56 | Etherscan V2 |
 | Arbitrum One | `arb` | 42161 | Etherscan V2 |
 | Optimism | `op` | 10 | Etherscan V2 |
-| Lens | `lens` | 232 | Lens RPC |
+| Lens | `lens` | 232 | Public RPC |
+| Polygon | `polygon` | 137 | Public RPC |
+| Avalanche C-Chain | `avalanche` | 43114 | Public RPC |
+| Gnosis | `gnosis` | 100 | Public RPC |
+| Mantle | `mantle` | 5000 | Public RPC |
+| World Chain | `world` | 480 | Public RPC |
+| Plasma | `plasma` | 9745 | Public RPC |
 
 Use `/<chain>/<txHash>` for the receipt page or
 `/api/tx/<txHash>?chain=<chain>` for JSON. Receipt defines the supported route
 aliases in [`lib/chain.ts`](lib/chain.ts) and uses `web3bio-profile-kit` for
 network names and chain IDs.
 
-## Lens
+## Public RPC receipts
 
-Lens mainnet (`lens`, chain ID 232) uses the same receipt page and API as the
-other chains: `/lens/<txHash>` and `/api/tx/<txHash>?chain=lens`.
+The public RPC routes work without `ETHERSCAN_API_KEY`. Lens uses
+`https://rpc.lens.xyz` by default and accepts a server-side `LENS_RPC_URL`
+override. The other public endpoints are listed in [`lib/evm-rpc.ts`](lib/evm-rpc.ts).
 
-The default RPC is `https://rpc.lens.xyz`. Set the server-side `LENS_RPC_URL`
-to override it. Lens does not use `ETHERSCAN_API_KEY`. Native transfers are shown
-in GHO; ERC-20 transfers come from receipt logs. Swaps that require internal
-native transfer traces may be shown as regular contract calls.
+Native transfers use the transaction addresses. An ERC-20 transfer summary uses
+the sender and recipient from the same receipt log as its amount. USD values are
+shown when a price is available. A swap that needs internal native transfer
+traces may appear as a contract call.
+
+## Receipt cache
+
+On Cloudflare Workers, receipt pages and the JSON API share a one-year edge
+cache keyed by network and transaction hash. Successful and reverted
+transactions are cached once their receipt and block are available. Pending,
+missing, and errored lookups stay uncached. USD values and profile data reflect
+the snapshot stored at cache fill. Each Cloudflare data center fills its own
+cache and may evict entries before the TTL.
 
 ## Deploy (CI)
 

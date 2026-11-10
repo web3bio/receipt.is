@@ -8,6 +8,12 @@ const RECEIPT_NETWORKS = {
   arb: Network.arbitrum,
   op: Network.optimism,
   lens: Network.lens,
+  polygon: Network.polygon,
+  avalanche: Network.avalanche,
+  gnosis: Network.gnosis,
+  mantle: Network.mantle,
+  world: Network.world,
+  plasma: Network.plasma,
 } as const;
 
 export type SupportedChain = keyof typeof RECEIPT_NETWORKS;
@@ -19,6 +25,12 @@ const COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   arb: "arbitrum-one",
   op: "optimistic-ethereum",
   lens: "lens",
+  polygon: "polygon-pos",
+  avalanche: "avalanche",
+  gnosis: "xdai",
+  mantle: "mantle",
+  world: "world-chain",
+  plasma: "plasma",
 };
 
 const EXPLORER_TX: Record<SupportedChain, string> = {
@@ -28,6 +40,12 @@ const EXPLORER_TX: Record<SupportedChain, string> = {
   arb: "https://arbiscan.io/tx/",
   op: "https://optimistic.etherscan.io/tx/",
   lens: "https://explorer.lens.xyz/tx/",
+  polygon: "https://polygonscan.com/tx/",
+  avalanche: "https://snowscan.xyz/tx/",
+  gnosis: "https://gnosisscan.io/tx/",
+  mantle: "https://mantlescan.xyz/tx/",
+  world: "https://worldscan.org/tx/",
+  plasma: "https://plasmascan.to/tx/",
 };
 
 const NATIVE_SYMBOL: Record<SupportedChain, string> = {
@@ -37,15 +55,22 @@ const NATIVE_SYMBOL: Record<SupportedChain, string> = {
   op: "ETH",
   bsc: "BNB",
   lens: "GHO",
+  polygon: "POL",
+  avalanche: "AVAX",
+  gnosis: "xDAI",
+  mantle: "MNT",
+  world: "ETH",
+  plasma: "XPL",
 };
 
-const NATIVE_LOGO: Record<SupportedChain, string> = {
+const NATIVE_LOGO: Partial<Record<SupportedChain, string>> = {
   eth: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
   base: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
   arb: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
   op: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
   bsc: "https://assets.coingecko.com/coins/images/825/small/bnb-icon2_2x.png",
   lens: "https://coin-images.coingecko.com/coins/images/30663/small/gho-token-logo.png",
+  world: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
 };
 
 export const SUPPORTED_CHAINS = Object.keys(RECEIPT_NETWORKS) as SupportedChain[];
@@ -84,7 +109,7 @@ export function getNativeSymbol(chain: string) {
 }
 
 export function getNativeLogoUrl(chain: string) {
-  return NATIVE_LOGO[normalizeChain(chain) as SupportedChain] ?? NATIVE_LOGO.eth;
+  return NATIVE_LOGO[normalizeChain(chain) as SupportedChain] ?? null;
 }
 
 export function normalizeAddress(value?: string) {

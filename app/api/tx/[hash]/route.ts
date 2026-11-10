@@ -5,8 +5,9 @@ import {
   normalizeChain,
   SUPPORTED_CHAINS,
 } from "@/lib/chain";
+import { getPublicRpcUrl } from "@/lib/evm-rpc";
 import { receiptErrorMessage, receiptErrorStatus } from "@/lib/tx-errors";
-import { buildTxReceipt } from "@/lib/tx-receipt";
+import { getCachedTxReceipt } from "@/lib/tx-receipt-cache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -37,15 +38,15 @@ export async function GET(
       );
     }
 
-    if (chain !== "lens" && !apiKey) {
+    if (!getPublicRpcUrl(chain) && !apiKey) {
       return Response.json(
         { error: "Missing ETHERSCAN_API_KEY in environment variables." },
         { status: 500 },
       );
     }
 
-    const payload = await buildTxReceipt(chain, hash, apiKey);
-    return Response.json(payload);
+    const payload = await getCachedTxReceipt(chain, hash, apiKey, request.headers.get("host"));
+    return Response.json({ ...payload, hash });
   } catch (error) {
     return Response.json(
       { error: receiptErrorMessage(error) },

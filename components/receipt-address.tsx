@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import ReceiptAvatar from "@/components/receipt-avatar";
 import { formatText } from "@/lib/format";
 
 type AddressCardProps = {
@@ -73,30 +74,6 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function Avatar({
-  label,
-  avatarUrl,
-}: {
-  label: string;
-  avatarUrl?: string | null;
-}) {
-  const text = label.replace("0x", "").slice(0, 2).toUpperCase() || "NA";
-  if (avatarUrl) {
-    return (
-      <span className="avatar avatar-lg receipt-avatar-squircle" aria-hidden>
-        <img src={avatarUrl} alt={label} />
-      </span>
-    );
-  }
-  return (
-    <span
-      className="avatar avatar-lg receipt-avatar-squircle"
-      aria-hidden
-      data-initial={text}
-    />
-  );
-}
-
 export default function AddressSection({
   title,
   addressLabel,
@@ -107,15 +84,19 @@ export default function AddressSection({
   const addressDisplay = splitAddressSegments(addressValue || addressLabel);
 
   return (
-    <section className="receipt-address">
+    <section className="receipt-address" data-receipt-drag>
       <p className="receipt-address-title">{title}</p>
       <div className="receipt-address-row">
-        <Avatar label={addressLabel ?? "na"} avatarUrl={avatarUrl} />
+        <ReceiptAvatar
+          className="avatar avatar-lg receipt-avatar-squircle"
+          label={addressLabel ?? "na"}
+          avatarUrl={avatarUrl}
+        />
         <div className="receipt-address-body">
           <p className="receipt-address-name">
             {displayLabel || formatText(addressLabel ?? "", 14)}
           </p>
-          <p className="receipt-address-text">
+          <p className="receipt-address-text" title={addressValue ?? addressLabel}>
             <span className="receipt-address-edge">{addressDisplay.prefix}</span>
             {addressDisplay.middle ? (
               <span className="receipt-address-mid">

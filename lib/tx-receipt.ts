@@ -17,7 +17,8 @@ import {
   fetchInternalNativeNet,
   fetchNativeUsd,
 } from "@/lib/etherscan";
-import { lensRpc } from "@/lib/lens-rpc";
+import { evmRpc, fillRpcTokenInfo, getPublicRpcUrl, type TransactionMethod } from "@/lib/evm-rpc";
+import { receiptParties, selectReceiptTransfer } from "@/lib/receipt-transfer";
 import type {
   Erc20Transfer,
   JsonRecord,
@@ -30,7 +31,7 @@ import type {
 const ERC20_TRANSFER =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const LENS_NATIVE_TOKEN = "0x000000000000000000000000000000000000800a";
-const LENS_ENRICHMENT_TIMEOUT_MS = 3_000;
+const RPC_ENRICHMENT_TIMEOUT_MS = 3_000;
 
 function transferKey(item: Erc20Transfer) {
   let valueNorm: string;
@@ -50,7 +51,7 @@ function transferKey(item: Erc20Transfer) {
 
 function topicAddress(topic: string) {
   const t = String(topic).toLowerCase().replace(/^0x/, "");
-  return t.length >= 40 ? `0x${t.slice(-40)}` : null;
+  return /^0{24}[\da-f]{40}$/.test(t) ? `0x${t.slice(-40)}` : null;
 }
 
 function parseLogTransfers(
@@ -77,13 +78,9 @@ function parseLogTransfers(
     const toA = topicAddress(String(topics[2]));
     if (!fromA || !toA) continue;
     const contractAddress = normalizeAddress(String(log.address ?? ""));
-    if (!contractAddress.startsWith("0x") || contractAddress === ctx.nativeToken) continue;
-    let valueStr: string;
-    try {
-      valueStr = BigInt(String(log.data ?? "0x0")).toString();
-    } catch {
-      continue;
-    }
+    if (!/^0x[\da-f]{40}$/.test(contractAddress) || contractAddress === ctx.nativeToken) continue;
+    if (typeof log.data !== "string" || !/^0x[\da-f]{64}$/i.test(log.data)) continue;
+    const valueStr = BigInt(log.data).toString();
     out.push({
       hash: lowerHash,
       contractAddress,
@@ -379,49 +376,44 @@ export async function buildTxReceipt(
   apiKey?: string,
 ): Promise<TxReceiptPayload> {
   const chainId = getChainId(chain)!;
-  const isLens = chain === "lens";
-  const etherscanKey = isLens ? undefined : apiKey;
-  if (!isLens && !etherscanKey) {
+  const rpcUrl = getPublicRpcUrl(chain);
+  const etherscanKey = rpcUrl ? undefined : apiKey;
+  if (!rpcUrl && !etherscanKey) {
     throw new Error("Missing ETHERSCAN_API_KEY in environment variables.");
   }
-  const transaction = etherscanKey
-    ? await etherscanFetch<JsonRecord>(
-        chainId, etherscanKey, "proxy", "eth_getTransactionByHash", { txhash: hash },
-      )
-    : await lensRpc("eth_getTransactionByHash", [hash]);
+  const readTransactionData = (method: TransactionMethod, value: string) => {
+    const isBlock = method === "eth_getBlockByNumber";
+    if (rpcUrl) return evmRpc(rpcUrl, method, isBlock ? [value, false] : [value]);
+    return etherscanFetch<JsonRecord>(
+      chainId,
+      etherscanKey!,
+      "proxy",
+      method,
+      isBlock ? { tag: value, boolean: "false" } : { txhash: value },
+    );
+  };
 
+  const transaction = await readTransactionData("eth_getTransactionByHash", hash);
   if (!transaction) {
     throw new Error("Transaction not found.");
   }
 
   const blockNumber = (transaction.blockNumber as string | undefined) ?? null;
-
   const [receipt, block] = await Promise.all([
-    etherscanKey
-      ? etherscanFetch<JsonRecord>(chainId, etherscanKey, "proxy", "eth_getTransactionReceipt", { txhash: hash })
-      : lensRpc("eth_getTransactionReceipt", [hash]),
-    blockNumber
-      ? etherscanKey
-        ? etherscanFetch<JsonRecord>(chainId, etherscanKey, "proxy", "eth_getBlockByNumber", {
-            tag: blockNumber,
-            boolean: "false",
-          })
-        : lensRpc("eth_getBlockByNumber", [blockNumber, false])
-      : Promise.resolve(null),
+    readTransactionData("eth_getTransactionReceipt", hash),
+    blockNumber ? readTransactionData("eth_getBlockByNumber", blockNumber) : null,
   ]);
 
-  if (isLens && blockNumber && (!receipt || !block)) {
-    throw new Error("Lens receipt or block is temporarily unavailable.");
+  if (rpcUrl && blockNumber && (!receipt || !block || receipt.blockNumber !== blockNumber)) {
+    throw new Error("Transaction receipt or block is temporarily unavailable.");
   }
-
-  const enrichmentSignal = isLens ? AbortSignal.timeout(LENS_ENRICHMENT_TIMEOUT_MS) : undefined;
   const input = String(transaction.input ?? "0x");
   const isContractCall =
     Boolean(transaction.to) && input !== "0x" && input !== "0x0";
   const functionSelector = isContractCall ? input.slice(0, 10) : null;
   const functionName = functionSelector
-    ? isLens
-      ? await resolveFunctionName(functionSelector, enrichmentSignal).catch(() => null)
+    ? rpcUrl
+      ? await resolveFunctionName(functionSelector, AbortSignal.timeout(RPC_ENRICHMENT_TIMEOUT_MS)).catch(() => null)
       : await resolveFunctionName(functionSelector)
     : null;
   const contractAddress =
@@ -442,15 +434,20 @@ export async function buildTxReceipt(
   const logTransfers = parseLogTransfers(receipt, hash, {
     blockNumber,
     timeStamp: blockTs,
-    nativeToken: isLens ? LENS_NATIVE_TOKEN : undefined,
+    nativeToken: chain === "lens" ? LENS_NATIVE_TOKEN : undefined,
   });
   const erc20Transfers = mergeTransfers(tokentxTransfers, logTransfers);
   const tokenContracts = uniqAddresses(erc20Transfers.map((t) => t.contractAddress));
-  const { tokenInfo, contractAddress: tokenInfoContractAddress } =
+  const { tokenInfo: indexedTokenInfo, contractAddress: tokenInfoContractAddress } =
     await resolveTokenInfoFromTransfers(
       chain,
-      isLens ? tokenContracts.slice(0, 3) : tokenContracts,
+      rpcUrl ? tokenContracts.slice(0, 3) : tokenContracts,
     );
+  const selectedTransfer = selectReceiptTransfer(erc20Transfers, tokenInfoContractAddress);
+  const selectedContract = selectedTransfer?.contractAddress;
+  const tokenInfo = rpcUrl && blockNumber && selectedContract
+    ? await fillRpcTokenInfo(rpcUrl, selectedContract, blockNumber, indexedTokenInfo)
+    : indexedTokenInfo;
   const externalType = detectTxType(transaction);
 
   const txToRaw = (transaction.to as string | undefined) ?? "";
@@ -509,13 +506,12 @@ export async function buildTxReceipt(
         Object.entries(receipt).filter(([key]) => key !== "logs"),
       )
     : null;
-  const fromAddress = (transaction.from as string | undefined) ?? "";
-  const toAddress = (transaction.to as string | undefined) ?? "";
+  const transfer = externalType === "contract_call" && !swap ? selectedTransfer : undefined;
+  const { from: fromAddress, to: toAddress } = receiptParties(transaction, transfer);
+  const enrichmentSignal = rpcUrl ? AbortSignal.timeout(RPC_ENRICHMENT_TIMEOUT_MS) : undefined;
   const [fromProfile, toProfile] = await Promise.all([
-    resolveNsProfile(fromAddress, enrichmentSignal),
-    toAddress
-      ? resolveNsProfile(toAddress, enrichmentSignal)
-      : Promise.resolve({ address: [] }),
+    resolveNsProfile(fromAddress ?? "", enrichmentSignal),
+    resolveNsProfile(toAddress ?? "", enrichmentSignal),
   ]);
 
   return {

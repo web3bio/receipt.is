@@ -3,8 +3,25 @@ import {
   getNativeLogoUrl,
   getNativeSymbol,
   normalizeChain,
+  type SupportedChain,
 } from "@/lib/chain";
+import { getPublicRpcUrl } from "@/lib/evm-rpc";
 import type { TokenInfo } from "@/lib/types";
+
+const NATIVE_COINGECKO_ID: Record<SupportedChain, string> = {
+  eth: "ethereum",
+  base: "ethereum",
+  bsc: "binancecoin",
+  arb: "ethereum",
+  op: "ethereum",
+  lens: "gho",
+  polygon: "polygon-ecosystem-token",
+  avalanche: "avalanche-2",
+  gnosis: "xdai",
+  mantle: "mantle",
+  world: "ethereum",
+  plasma: "plasma",
+};
 
 function headers(): Record<string, string> {
   const h: Record<string, string> = {
@@ -20,7 +37,7 @@ function options(chain: string): RequestInit {
   return {
     cache: "no-store",
     headers: headers(),
-    signal: normalizeChain(chain) === "lens" ? AbortSignal.timeout(3_000) : undefined,
+    signal: getPublicRpcUrl(chain) ? AbortSignal.timeout(3_000) : undefined,
   };
 }
 
@@ -100,8 +117,8 @@ export async function fetchTokenInfo(
 }
 
 export async function fetchNativeUsd(chain: string): Promise<string | null> {
-  const chainKey = normalizeChain(chain);
-  const cgId = chainKey === "lens" ? "gho" : chainKey === "bsc" ? "binancecoin" : "ethereum";
+  const cgId = NATIVE_COINGECKO_ID[normalizeChain(chain) as SupportedChain];
+  if (!cgId) return null;
   try {
     const response = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(cgId)}&vs_currencies=usd`,

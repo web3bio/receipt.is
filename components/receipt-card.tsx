@@ -21,9 +21,11 @@ import {
   parseProfile,
   type BlockTimestampMode,
 } from "@/lib/format";
+import { receiptParties, selectReceiptTransfer } from "@/lib/receipt-transfer";
 import type { SwapToken, TokenInfo, TxReceiptData } from "@/lib/types";
 import OverviewSection from "@/components/receipt-overview";
 import AddressSection from "@/components/receipt-address";
+import ReceiptSurface from "@/components/receipt-surface";
 
 type ProfileView = {
   identityText: string;
@@ -40,10 +42,10 @@ function formatAddressDisplay(value?: string) {
 function buildProfileView(rawProfile: unknown, fallbackAddress?: string): ProfileView {
   const profile = parseProfile(rawProfile);
   const identityText = formatAddressDisplay(profile.identity ?? fallbackAddress ?? "");
-  const fallbackAvatar =
-    !profile.avatar && profile.identity
-      ? `https://api.web3.bio/avatar/${encodeURIComponent(profile.identity)}`
-      : null;
+  const avatarIdentity = fallbackAddress || profile.identity;
+  const fallbackAvatar = avatarIdentity
+    ? `https://api.web3.bio/avatar/${encodeURIComponent(avatarIdentity)}`
+    : null;
   const displayLabel =
     profile.displayName && identityText
       ? `${profile.displayName} (${identityText})`
@@ -51,29 +53,9 @@ function buildProfileView(rawProfile: unknown, fallbackAddress?: string): Profil
   return {
     identityText,
     displayLabel,
-    addressValue: profile.address ?? undefined,
+    addressValue: fallbackAddress ?? profile.address ?? undefined,
     avatarUrl: profile.avatar ?? fallbackAvatar,
   };
-}
-
-function hasNonZeroWei(value: unknown) {
-  try {
-    return BigInt(String(value ?? "0")) > BigInt(0);
-  } catch {
-    return false;
-  }
-}
-
-function resolvePricingTransfer(data: TxReceiptData) {
-  const expected = (data.tokenInfoContractAddress ?? "").toLowerCase();
-  const transfers = data.erc20Transfers.transfers ?? [];
-  if (expected) {
-    const matched = transfers.find(
-      (item) => (item.contractAddress ?? "").toLowerCase() === expected,
-    );
-    if (matched) return matched;
-  }
-  return transfers[0];
 }
 
 function ShareButton() {
@@ -90,7 +72,7 @@ function ShareButton() {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <li className="receipt-detail-row">
+    <li className="receipt-detail-row" data-detail={label}>
       <span className="receipt-detail-label">{label}</span>
       <span className="receipt-detail-value">{value}</span>
     </li>
@@ -142,31 +124,27 @@ export default function ReceiptCard({
   const [timeMode, setTimeMode] = useState<BlockTimestampMode>("local");
   const tx = data.transaction ?? {};
   const block = data.block ?? {};
-  const fromAddress = tx.from as string | undefined;
-  const toAddress = tx.to as string | undefined;
   const txStatus = data.txStatus;
-  const pricingTransfer = resolvePricingTransfer(data);
-  const nativeTransfer =
-    data.type === "native_transfer" &&
-    hasNonZeroWei(tx.value);
-
+  const pricingTransfer = selectReceiptTransfer(
+    data.erc20Transfers.transfers,
+    data.tokenInfoContractAddress,
+  );
+  const transfer = data.type === "contract_call" && !data.swap ? pricingTransfer : undefined;
+  const { from: fromAddress, to: toAddress } = receiptParties(tx, transfer);
+  const nativeTransfer = data.type === "native_transfer";
+  const contract = normalizeAddress(pricingTransfer?.contractAddress);
+  const tokenInfo = contract && contract === normalizeAddress(
+    data.tokenInfo?.contractAddress ?? data.tokenInfoContractAddress ?? undefined,
+  ) ? data.tokenInfo : null;
   const tokenSymbol = nativeTransfer
     ? getNativeSymbol(chain)
-    : (data.tokenInfo?.symbol ?? pricingTransfer?.tokenSymbol ?? "TOKEN");
-  const decimalsForUsd = nativeTransfer
-    ? "18"
-    : (() => {
-        const td = pricingTransfer?.tokenDecimal;
-        const div = data.tokenInfo?.divisor;
-        const tdN = td != null ? Number.parseInt(String(td), 10) : Number.NaN;
-        if (Number.isFinite(tdN) && tdN > 0) return String(td);
-        const divN = div != null ? Number.parseInt(String(div), 10) : Number.NaN;
-        if (Number.isFinite(divN) && divN > 0) return String(div);
-        return td ?? div ?? undefined;
-      })();
+    : (tokenInfo?.symbol ?? pricingTransfer?.tokenSymbol ?? "TOKEN");
+  const tokenDecimals = [pricingTransfer?.tokenDecimal, tokenInfo?.divisor].find(
+    (value) => value !== undefined && /^\d{1,2}$/.test(value) && Number(value) <= 80,
+  );
   const amount = nativeTransfer
     ? formatAmount(String(tx.value), "18")
-    : formatAmount(pricingTransfer?.value, decimalsForUsd);
+    : tokenDecimals !== undefined ? formatAmount(pricingTransfer?.value, tokenDecimals) : "-";
   const blockTs = block.timestamp as string | undefined;
   const timeText = useMemo(
     () => formatBlockTimestamp(blockTs, timeMode),
@@ -189,19 +167,15 @@ export default function ReceiptCard({
   const explorerUrl = getExplorerTxUrl(chain, hash);
   const usdValue = nativeTransfer
     ? formatUsdFromTokenRaw(String(tx.value), "18", data.ethUsd)
-    : formatUsdFromTokenRaw(
-        pricingTransfer?.value,
-        decimalsForUsd,
-        data.tokenInfo?.tokenPriceUSD,
-      );
+    : tokenDecimals === undefined
+      ? ""
+      : formatUsdFromTokenRaw(pricingTransfer?.value, tokenDecimals, tokenInfo?.tokenPriceUSD);
   const tokenLogoUrl = nativeTransfer
     ? getNativeLogoUrl(chain)
-    : (data.tokenInfo?.image ?? null);
+    : (tokenInfo?.image ?? null);
 
-  const hasErc20 = (data.erc20Transfers.transfers ?? []).length > 0;
   const isSwap = data.type === "contract_call" && Boolean(data.swap);
-  const isTransferLayout =
-    !isSwap && (data.type === "native_transfer" || hasErc20);
+  const isTransferLayout = !isSwap && (nativeTransfer || Boolean(transfer));
   const isContractCall =
     data.type === "contract_call" &&
     Boolean((toAddress ?? "").trim()) &&
@@ -225,8 +199,8 @@ export default function ReceiptCard({
   }, [data.swap]);
 
   return (
-    <article className="receipt-card">
-      <header className="receipt-topbar">
+    <ReceiptSurface>
+      <header className="receipt-topbar" data-receipt-drag>
         <span className={`label label-rounded ${getStatusClass(txStatus)}`}>
           {getStatusLabel(txStatus)}
         </span>
@@ -263,7 +237,7 @@ export default function ReceiptCard({
         }
       />
 
-      <section className="receipt-flow">
+      <section className="receipt-flow" data-receipt-drag>
         <AddressSection
           title="FROM"
           addressLabel={fromAddress}
@@ -291,8 +265,8 @@ export default function ReceiptCard({
         />
       </section>
 
-      <footer className="receipt-footer">
-        <ul className="receipt-detail-list">
+      <footer className="receipt-footer" data-receipt-drag>
+        <ul className="receipt-detail-list" data-receipt-drag>
           <li className="receipt-detail-row">
             <span className="receipt-detail-label">Time</span>
             <div className="receipt-detail-time">
@@ -336,6 +310,6 @@ export default function ReceiptCard({
           Explorer
         </a>
       </footer>
-    </article>
+    </ReceiptSurface>
   );
 }
