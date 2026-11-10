@@ -2,6 +2,22 @@
 
 Transaction receipt viewer for EVM chains.
 
+## Supported chains
+
+| Network | Route / API `chain` | Chain ID | Transaction source |
+|----------|---------------------|---------:|--------------------|
+| Ethereum | `eth` | 1 | Etherscan V2 |
+| Base | `base` | 8453 | Etherscan V2 |
+| BNB Chain | `bsc` | 56 | Etherscan V2 |
+| Arbitrum One | `arb` | 42161 | Etherscan V2 |
+| Optimism | `op` | 10 | Etherscan V2 |
+| Lens | `lens` | 232 | Lens RPC |
+
+Use `/<chain>/<txHash>` for the receipt page or
+`/api/tx/<txHash>?chain=<chain>` for JSON. Receipt defines the supported route
+aliases in [`lib/chain.ts`](lib/chain.ts) and uses `web3bio-profile-kit` for
+network names and chain IDs.
+
 ## Lens
 
 Lens mainnet (`lens`, chain ID 232) uses the same receipt page and API as the

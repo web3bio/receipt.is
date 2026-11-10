@@ -1,22 +1,16 @@
-export const CHAIN_TO_ID = {
-  eth: "1",
-  base: "8453",
-  bsc: "56",
-  arb: "42161",
-  op: "10",
-  lens: "232",
+import { Network } from "web3bio-profile-kit/types";
+import { NETWORK_DATA } from "web3bio-profile-kit/utils";
+
+const RECEIPT_NETWORKS = {
+  eth: Network.ethereum,
+  base: Network.base,
+  bsc: Network.bsc,
+  arb: Network.arbitrum,
+  op: Network.optimism,
+  lens: Network.lens,
 } as const;
 
-export type SupportedChain = keyof typeof CHAIN_TO_ID;
-
-const CHAIN_NAMES: Record<SupportedChain, string> = {
-  eth: "Ethereum",
-  base: "Base",
-  bsc: "BNB Chain",
-  arb: "Arbitrum",
-  op: "Optimism",
-  lens: "Lens",
-};
+export type SupportedChain = keyof typeof RECEIPT_NETWORKS;
 
 const COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   eth: "ethereum",
@@ -54,7 +48,7 @@ const NATIVE_LOGO: Record<SupportedChain, string> = {
   lens: "https://coin-images.coingecko.com/coins/images/30663/small/gho-token-logo.png",
 };
 
-export const SUPPORTED_CHAINS = Object.keys(CHAIN_TO_ID) as SupportedChain[];
+export const SUPPORTED_CHAINS = Object.keys(RECEIPT_NETWORKS) as SupportedChain[];
 export const SUPPORTED_CHAIN_SET = new Set<string>(SUPPORTED_CHAINS);
 export const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 
@@ -62,13 +56,18 @@ export function normalizeChain(chain?: string | null) {
   return chain?.toLowerCase().trim() ?? "eth";
 }
 
+function getReceiptNetwork(chain: string) {
+  if (!SUPPORTED_CHAIN_SET.has(chain)) return undefined;
+  return NETWORK_DATA[RECEIPT_NETWORKS[chain as SupportedChain]];
+}
+
 export function getChainDisplayName(chain?: string | null) {
-  const k = normalizeChain(chain) as SupportedChain;
-  return CHAIN_NAMES[k] ?? k;
+  const key = normalizeChain(chain);
+  return getReceiptNetwork(key)?.label ?? key;
 }
 
 export function getChainId(chain: string) {
-  return CHAIN_TO_ID[chain as SupportedChain];
+  return getReceiptNetwork(chain)?.chainId?.toString();
 }
 
 export function getCoingeckoPlatform(chain: string) {
