@@ -1,25 +1,15 @@
 import { Buffer } from "node:buffer";
+import { getReceiptNetwork, isNativeChain } from "@/lib/chain";
 import type { JsonRecord, TokenInfo } from "@/lib/types";
-
-const PUBLIC_RPC_URLS = new Map<string, string>([
-  ["lens", "https://rpc.lens.xyz"],
-  ["polygon", "https://polygon-bor-rpc.publicnode.com"],
-  ["avalanche", "https://api.avax.network/ext/bc/C/rpc"],
-  ["gnosis", "https://rpc.gnosischain.com"],
-  ["mantle", "https://rpc.mantle.xyz"],
-  ["world", "https://worldchain-mainnet.g.alchemy.com/public"],
-  ["plasma", "https://rpc.plasma.to"],
-]);
 
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const RPC_TIMEOUT_MS = 8_000;
 const METADATA_TIMEOUT_MS = 3_000;
 
 export function getPublicRpcUrl(chain: string) {
-  if (chain === "lens") {
-    return process.env.LENS_RPC_URL?.trim() || PUBLIC_RPC_URLS.get(chain);
-  }
-  return PUBLIC_RPC_URLS.get(chain);
+  if (isNativeChain(chain)) return undefined;
+  const rpcUrl = getReceiptNetwork(chain)?.rpcUrl;
+  return chain === "lens" ? process.env.LENS_RPC_URL?.trim() || rpcUrl : rpcUrl;
 }
 
 async function readJson(response: Response): Promise<unknown> {

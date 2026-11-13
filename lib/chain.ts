@@ -14,6 +14,18 @@ const RECEIPT_NETWORKS = {
   mantle: Network.mantle,
   world: Network.world,
   plasma: Network.plasma,
+  unichain: Network.unichain,
+  scroll: Network.scroll,
+  linea: Network.linea,
+  zksync: Network.zksync_era,
+  abstract: Network.abstract,
+  zora: Network.zora,
+  nova: Network.arbitrum_nova,
+  xlayer: Network.xLayer,
+  apechain: Network.apechain,
+  flow: Network.flow,
+  fantom: Network.fantom,
+  conflux: Network.conflux,
 } as const;
 
 export type SupportedChain = keyof typeof RECEIPT_NETWORKS;
@@ -31,36 +43,18 @@ const COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   mantle: "mantle",
   world: "world-chain",
   plasma: "plasma",
-};
-
-const EXPLORER_TX: Record<SupportedChain, string> = {
-  eth: "https://etherscan.io/tx/",
-  base: "https://basescan.org/tx/",
-  bsc: "https://bscscan.com/tx/",
-  arb: "https://arbiscan.io/tx/",
-  op: "https://optimistic.etherscan.io/tx/",
-  lens: "https://explorer.lens.xyz/tx/",
-  polygon: "https://polygonscan.com/tx/",
-  avalanche: "https://snowscan.xyz/tx/",
-  gnosis: "https://gnosisscan.io/tx/",
-  mantle: "https://mantlescan.xyz/tx/",
-  world: "https://worldscan.org/tx/",
-  plasma: "https://plasmascan.to/tx/",
-};
-
-const NATIVE_SYMBOL: Record<SupportedChain, string> = {
-  eth: "ETH",
-  base: "ETH",
-  arb: "ETH",
-  op: "ETH",
-  bsc: "BNB",
-  lens: "GHO",
-  polygon: "POL",
-  avalanche: "AVAX",
-  gnosis: "xDAI",
-  mantle: "MNT",
-  world: "ETH",
-  plasma: "XPL",
+  unichain: "unichain",
+  scroll: "scroll",
+  linea: "linea",
+  zksync: "zksync",
+  abstract: "abstract",
+  zora: "zora",
+  nova: "arbitrum-nova",
+  xlayer: "x-layer",
+  apechain: "apechain",
+  flow: "flow-evm",
+  fantom: "fantom",
+  conflux: "conflux",
 };
 
 const NATIVE_LOGO: Partial<Record<SupportedChain, string>> = {
@@ -73,16 +67,87 @@ const NATIVE_LOGO: Partial<Record<SupportedChain, string>> = {
   world: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
 };
 
-export const SUPPORTED_CHAINS = Object.keys(RECEIPT_NETWORKS) as SupportedChain[];
+const NATIVE_NETWORKS = {
+  bitcoin: Network.bitcoin,
+  litecoin: Network.litecoin,
+  dogecoin: Network.dogecoin,
+  tron: Network.tron,
+  aptos: Network.aptos,
+  xrpl: Network.xrpl,
+  sui: Network.sui,
+  starknet: Network.starknet,
+  ton: Network.ton,
+  near: Network.near,
+  arweave: Network.arweave,
+  solana: Network.solana,
+} as const;
+
+export type NativeChain = keyof typeof NATIVE_NETWORKS;
+
+export function isNativeChain(chain: string): chain is NativeChain {
+  return Object.hasOwn(NATIVE_NETWORKS, chain);
+}
+
+const BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function isBase58Id(value: string, byteLength: number) {
+  if (value.length < byteLength || value.length > Math.ceil(byteLength * 1.366)) return false;
+  let number = BigInt(0);
+  for (const char of value) {
+    const digit = BASE58.indexOf(char);
+    if (digit < 0) return false;
+    number = number * BigInt(58) + BigInt(digit);
+  }
+  const leadingZeros = value.match(/^1*/)?.[0].length ?? 0;
+  return leadingZeros + (number ? Math.ceil(number.toString(16).length / 2) : 0) === byteLength;
+}
+
+export function isValidTransactionId(chain: string, value: string) {
+  switch (chain) {
+    case "solana": return isBase58Id(value, 64);
+    case "near":
+    case "sui": return isBase58Id(value, 32);
+    case "arweave": return /^[A-Za-z0-9_-]{43}$/.test(value);
+    case "ton": return /^(?:[\da-f]{64}|[A-Za-z0-9_-]{43})$/i.test(value);
+    case "starknet": return /^0x[\da-f]{1,64}$/i.test(value);
+    case "bitcoin":
+    case "litecoin":
+    case "dogecoin":
+    case "tron":
+    case "xrpl": return /^(?:0x)?[\da-f]{64}$/i.test(value);
+    default: return isValidTxHash(value);
+  }
+}
+
+export function normalizeTransactionId(chain: string, value: string) {
+  switch (chain) {
+    case "solana":
+    case "near":
+    case "sui":
+    case "arweave": return value;
+    case "ton": return value.length === 64 ? value.toLowerCase() : value;
+    case "starknet": return `0x${BigInt(value.toLowerCase()).toString(16)}`;
+    case "bitcoin":
+    case "litecoin":
+    case "dogecoin":
+    case "tron":
+    case "xrpl": return value.toLowerCase().replace(/^0x/, "");
+    default: return value.toLowerCase();
+  }
+}
+
+export const SUPPORTED_CHAINS = [...Object.keys(RECEIPT_NETWORKS), ...Object.keys(NATIVE_NETWORKS)];
 export const SUPPORTED_CHAIN_SET = new Set<string>(SUPPORTED_CHAINS);
 export const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 
 export function normalizeChain(chain?: string | null) {
-  return chain?.toLowerCase().trim() ?? "eth";
+  const key = chain?.toLowerCase().trim() ?? "eth";
+  return key === "sol" ? "solana" : key === "btc" ? "bitcoin" : key;
 }
 
-function getReceiptNetwork(chain: string) {
-  if (!SUPPORTED_CHAIN_SET.has(chain)) return undefined;
+export function getReceiptNetwork(chain: string) {
+  if (isNativeChain(chain)) return NETWORK_DATA[NATIVE_NETWORKS[chain]];
+  if (!Object.hasOwn(RECEIPT_NETWORKS, chain)) return undefined;
   return NETWORK_DATA[RECEIPT_NETWORKS[chain as SupportedChain]];
 }
 
@@ -100,16 +165,18 @@ export function getCoingeckoPlatform(chain: string) {
 }
 
 export function getExplorerTxUrl(chain: string, hash: string) {
-  const k = normalizeChain(chain) as SupportedChain;
-  return `${EXPLORER_TX[k] ?? EXPLORER_TX.eth}${hash}`;
+  const key = normalizeChain(chain);
+  const prefix = getReceiptNetwork(key)?.scanPrefixTx;
+  return prefix ? `${prefix}${encodeURIComponent(normalizeTransactionId(key, hash))}` : undefined;
 }
 
 export function getNativeSymbol(chain: string) {
-  return NATIVE_SYMBOL[normalizeChain(chain) as SupportedChain] ?? "ETH";
+  return getReceiptNetwork(normalizeChain(chain))?.nativeSymbol ?? "ETH";
 }
 
 export function getNativeLogoUrl(chain: string) {
-  return NATIVE_LOGO[normalizeChain(chain) as SupportedChain] ?? null;
+  const key = normalizeChain(chain) as SupportedChain;
+  return NATIVE_LOGO[key] ?? (getNativeSymbol(key) === "ETH" ? NATIVE_LOGO.eth ?? null : null);
 }
 
 export function normalizeAddress(value?: string) {

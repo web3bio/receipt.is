@@ -1,10 +1,11 @@
 import { headers } from "next/headers";
-import { Suspense } from "react";
+import { Suspense, type CSSProperties } from "react";
 import ReceiptCard from "@/components/receipt-card";
 import ReceiptSkeleton from "@/components/receipt-skeleton";
 import {
-  getChainId,
-  isValidTxHash,
+  getReceiptNetwork,
+  isNativeChain,
+  isValidTransactionId,
   normalizeChain,
   SUPPORTED_CHAINS,
   SUPPORTED_CHAIN_SET,
@@ -43,21 +44,12 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
     );
   }
 
-  if (!isValidTxHash(hash)) {
-    return <ErrorState message="Invalid tx hash. Expected 0x-prefixed 64-byte hash." />;
-  }
-
-  const chainId = getChainId(chainKey);
-  if (!chainId) {
-    return (
-      <ErrorState
-        message={`Unsupported chain '${chainKey}'. Supported: ${SUPPORTED_CHAINS.join(", ")}.`}
-      />
-    );
+  if (!isValidTransactionId(chainKey, hash)) {
+    return <ErrorState message="Invalid transaction ID for this network." />;
   }
 
   const apiKey = process.env.ETHERSCAN_API_KEY;
-  if (!getPublicRpcUrl(chainKey) && !apiKey) {
+  if (!isNativeChain(chainKey) && !getPublicRpcUrl(chainKey) && !apiKey) {
     return (
       <ErrorState message="Missing ETHERSCAN_API_KEY in environment variables." />
     );
@@ -74,11 +66,28 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
   return <ReceiptCard chain={chainKey} hash={hash} data={receiptData} />;
 }
 
+const NETWORK_ICON_FILES: Record<string, string> = {
+  ethereum: "eth",
+  arbitrum: "arb",
+  optimism: "op",
+  doge: "dogecoin",
+};
+
 export default async function TxPage({ params }: PageProps) {
   const { chain, hash } = await params;
 
+  const chainKey = normalizeChain(chain);
+  const network = getReceiptNetwork(chainKey);
+  const icon = network?.icon.match(/^icons\/icon-([a-z0-9-]+)\.svg$/)?.[1];
+  const theme = network ? {
+    "--receipt-chain-color": network.primaryColor,
+    "--receipt-chain-background": network.bgColor,
+    "--receipt-network-icon": icon ? `url("/networks/${NETWORK_ICON_FILES[icon] ?? icon}.svg")` : undefined,
+    "--receipt-watermark": icon ? '""' : undefined,
+  } as CSSProperties : undefined;
+
   return (
-    <main className="receipt-page" data-chain={normalizeChain(chain)}>
+    <main className="receipt-page" data-chain={chainKey} style={theme}>
       <Suspense fallback={<ReceiptSkeleton />}>
         <TxContent chain={chain} hash={hash} />
       </Suspense>

@@ -1,3 +1,5 @@
+import { isNativeChain, normalizeTransactionId } from "@/lib/chain";
+import { buildNativeReceipt } from "@/lib/native-receipt";
 import { buildTxReceipt } from "@/lib/tx-receipt";
 import type { TxReceiptPayload } from "@/lib/types";
 
@@ -10,12 +12,15 @@ export async function getCachedTxReceipt(
   apiKey: string | undefined,
   host: string | null,
 ): Promise<TxReceiptPayload> {
-  const normalizedHash = hash.toLowerCase();
+  const normalizedHash = normalizeTransactionId(chain, hash);
+  const build = () => isNativeChain(chain)
+    ? buildNativeReceipt(chain, normalizedHash)
+    : buildTxReceipt(chain, normalizedHash, apiKey);
   if (!host || typeof caches === "undefined") {
-    return buildTxReceipt(chain, normalizedHash, apiKey);
+    return build();
   }
 
-  const key = `https://${host}/_receipt-cache/${chain}/${normalizedHash}`;
+  const key = `https://${host}/_receipt-cache/${chain}/${encodeURIComponent(normalizedHash)}`;
   let cache: Cache | undefined;
   try {
     cache = await caches.open(RECEIPT_CACHE);
@@ -25,14 +30,14 @@ export async function getCachedTxReceipt(
     // A cache read failure should fall through to the transaction source.
   }
 
-  const payload = await buildTxReceipt(chain, normalizedHash, apiKey);
+  const payload = await build();
   const blockNumber = payload.transaction.blockNumber;
   if (
     cache &&
     (payload.txStatus === "success" || payload.txStatus === "failed") &&
-    blockNumber &&
-    payload.block?.number === blockNumber &&
-    payload.receipt?.blockNumber === blockNumber
+    (payload.nativeDetails ? payload.nativeDetails.finalized : (
+      blockNumber && payload.block?.number === blockNumber && payload.receipt?.blockNumber === blockNumber
+    ))
   ) {
     await cache.put(
       key,

@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import {
-  getChainId,
-  isValidTxHash,
+  isNativeChain,
+  isValidTransactionId,
   normalizeChain,
   SUPPORTED_CHAINS,
+  SUPPORTED_CHAIN_SET,
 } from "@/lib/chain";
 import { getPublicRpcUrl } from "@/lib/evm-rpc";
 import { receiptErrorMessage, receiptErrorStatus } from "@/lib/tx-errors";
@@ -19,17 +20,16 @@ export async function GET(
   try {
     const { hash } = await params;
     const chain = normalizeChain(request.nextUrl.searchParams.get("chain"));
-    const chainId = getChainId(chain);
     const apiKey = process.env.ETHERSCAN_API_KEY;
 
-    if (!isValidTxHash(hash)) {
+    if (!isValidTransactionId(chain, hash)) {
       return Response.json(
-        { error: "Invalid tx hash. Expected 0x-prefixed 64-byte hash." },
+        { error: "Invalid transaction ID for this network." },
         { status: 400 },
       );
     }
 
-    if (!chainId) {
+    if (!SUPPORTED_CHAIN_SET.has(chain)) {
       return Response.json(
         {
           error: `Unsupported chain '${chain}'. Supported: ${SUPPORTED_CHAINS.join(", ")}.`,
@@ -38,7 +38,7 @@ export async function GET(
       );
     }
 
-    if (!getPublicRpcUrl(chain) && !apiKey) {
+    if (!isNativeChain(chain) && !getPublicRpcUrl(chain) && !apiKey) {
       return Response.json(
         { error: "Missing ETHERSCAN_API_KEY in environment variables." },
         { status: 500 },

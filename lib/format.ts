@@ -107,15 +107,17 @@ export function formatAmount(value?: string, decimals?: string) {
   if (!Number.isFinite(decimalCount) || decimalCount <= 0) return value;
   try {
     const base = BigInt(10) ** BigInt(decimalCount);
-    const raw = BigInt(value);
+    const signed = BigInt(value);
+    const sign = signed < BigInt(0) ? "-" : "";
+    const raw = signed < BigInt(0) ? -signed : signed;
     const integer = raw / base;
     const fraction = raw % base;
-    if (fraction === BigInt(0)) return integer.toString();
+    if (fraction === BigInt(0)) return `${sign}${integer}`;
     const fractionStr = fraction
       .toString()
       .padStart(decimalCount, "0")
       .replace(/0+$/, "");
-    return `${integer.toString()}.${fractionStr}`;
+    return `${sign}${integer}.${fractionStr}`;
   } catch {
     return value;
   }

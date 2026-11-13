@@ -21,6 +21,18 @@ const NATIVE_COINGECKO_ID: Record<SupportedChain, string> = {
   mantle: "mantle",
   world: "ethereum",
   plasma: "plasma",
+  unichain: "ethereum",
+  scroll: "ethereum",
+  linea: "ethereum",
+  zksync: "ethereum",
+  abstract: "ethereum",
+  zora: "ethereum",
+  nova: "ethereum",
+  xlayer: "okb",
+  apechain: "apecoin",
+  flow: "flow",
+  fantom: "fantom",
+  conflux: "conflux-token",
 };
 
 function headers(): Record<string, string> {

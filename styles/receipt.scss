@@ -22,21 +22,6 @@ $receipt-shadow:
 
 $receipt-bp-md: 48rem;
 
-$network-accents: (
-  eth: #4b52a1,
-  base: #1744b8,
-  bsc: #805500,
-  arb: #175583,
-  op: #ac263d,
-  lens: #396319,
-  polygon: #6635ab,
-  avalanche: #a83224,
-  gnosis: #086958,
-  mantle: #2a5d66,
-  world: #334253,
-  plasma: #285c40,
-);
-
 html {
   scroll-behavior: smooth;
 }
@@ -48,8 +33,8 @@ body {
 }
 
 .receipt-page {
-  --receipt-accent: #414b5c;
-  --receipt-canvas: color-mix(in oklab, var(--receipt-accent) 9%, #f6f5f2);
+  --receipt-accent: color-mix(in oklab, var(--receipt-chain-color, #414b5c) 77%, #161b24);
+  --receipt-canvas: color-mix(in oklab, var(--receipt-chain-background, #f6f5f2) 55%, #f6f5f2);
   --receipt-tint: color-mix(in oklab, var(--receipt-accent) 7%, white);
   --receipt-line: color-mix(in oklab, var(--receipt-accent) 18%, white);
   --receipt-quiet-ink: color-mix(in oklab, var(--receipt-accent) 50%, #424852);
@@ -86,14 +71,6 @@ body {
   ::selection {
     background: var(--receipt-line);
     color: variables.$dark-color;
-  }
-
-  @each $chain, $accent in $network-accents {
-    &[data-chain="#{$chain}"] {
-      --receipt-accent: #{$accent};
-      --receipt-network-icon: url("/networks/#{$chain}.svg");
-      --receipt-watermark: "";
-    }
   }
 }
 

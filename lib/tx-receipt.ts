@@ -30,7 +30,7 @@ import type {
 
 const ERC20_TRANSFER =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-const LENS_NATIVE_TOKEN = "0x000000000000000000000000000000000000800a";
+const ZK_STACK_NATIVE_TOKEN = "0x000000000000000000000000000000000000800a";
 const RPC_ENRICHMENT_TIMEOUT_MS = 3_000;
 
 function transferKey(item: Erc20Transfer) {
@@ -434,7 +434,7 @@ export async function buildTxReceipt(
   const logTransfers = parseLogTransfers(receipt, hash, {
     blockNumber,
     timeStamp: blockTs,
-    nativeToken: chain === "lens" ? LENS_NATIVE_TOKEN : undefined,
+    nativeToken: ["lens", "zksync", "abstract"].includes(chain) ? ZK_STACK_NATIVE_TOKEN : undefined,
   });
   const erc20Transfers = mergeTransfers(tokentxTransfers, logTransfers);
   const tokenContracts = uniqAddresses(erc20Transfers.map((t) => t.contractAddress));

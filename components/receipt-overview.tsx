@@ -7,7 +7,7 @@ import {
   formatTokenAmountTwoDecimals,
 } from "@/lib/format";
 
-type OverviewVariant = "contract_call" | "token_transfer" | "swap";
+type OverviewVariant = "contract_call" | "token_transfer" | "swap" | "transaction";
 
 export type SwapTokenView = {
   amount: string;
@@ -18,6 +18,8 @@ export type SwapTokenView = {
 export type OverviewCardProps = {
   variant: OverviewVariant;
   methodPhrase?: string;
+  transactionNote?: string;
+  preciseAmount?: boolean;
   usdValue: string;
   amount: string;
   tokenSymbol: string;
@@ -143,6 +145,8 @@ function SwapTokenInline({ token }: { token: SwapTokenView }) {
 export default function OverviewSection({
   variant,
   methodPhrase,
+  transactionNote,
+  preciseAmount,
   usdValue,
   amount,
   tokenSymbol,
@@ -162,8 +166,8 @@ export default function OverviewSection({
     [blockTimestamp],
   );
   const displayAmount = useMemo(
-    () => amount === "-" ? "—" : formatTokenAmountTwoDecimals(amount),
-    [amount],
+    () => amount === "-" ? "—" : preciseAmount ? amount : formatTokenAmountTwoDecimals(amount),
+    [amount, preciseAmount],
   );
   const price = usdValue.trim();
   const title = (methodPhrase ?? "").trim() || "Contract";
@@ -201,6 +205,14 @@ export default function OverviewSection({
           ) : null}
           <span className="receipt-overview-time">{relativeTime}</span>
         </p>
+      </>
+    ) : variant === "transaction" ? (
+      <>
+        <p className="receipt-overview-line receipt-overview-line--main">
+          <span className="receipt-overview-method">{title === "Contract" ? "Transaction" : title}</span>
+          {relativeTime !== "-" && <span className="receipt-overview-time">{relativeTime}</span>}
+        </p>
+        {transactionNote && <p className="receipt-overview-line receipt-overview-line--sub">{transactionNote}</p>}
       </>
     ) : variant === "contract_call" ? (
       <>

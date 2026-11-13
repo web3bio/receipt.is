@@ -48,6 +48,7 @@ export type TxReceiptPayload = {
   hash: string;
   type: string;
   txStatus: string;
+  nativeDetails?: NativeReceiptDetails;
   functionName: string | null;
   functionSelector: string | null;
   contractAddress: string | null;
@@ -74,3 +75,26 @@ export function toReceiptData(payload: TxReceiptPayload): TxReceiptData {
   const { chain, chainId, hash, ...data } = payload;
   return data;
 }
+
+export type ReceiptMovement = {
+  from: string;
+  to: string;
+  amount: string;
+  symbol: string;
+};
+
+export type ReceiptEntry = {
+  label: string;
+  address?: string;
+  value?: string;
+};
+
+export type NativeReceiptDetails = {
+  from?: string;
+  to?: string;
+  fee?: string;
+  explorerUrl?: string;
+  movements: ReceiptMovement[];
+  entries?: ReceiptEntry[];
+  finalized: boolean;
+};
