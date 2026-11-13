@@ -11,6 +11,7 @@ import {
   SUPPORTED_CHAIN_SET,
 } from "@/lib/chain";
 import { getPublicRpcUrl } from "@/lib/evm-rpc";
+import { formatBlockTimestampRelative } from "@/lib/format";
 import { receiptErrorMessage } from "@/lib/tx-errors";
 import { getCachedTxReceipt } from "@/lib/tx-receipt-cache";
 import { toReceiptData, type TxReceiptData } from "@/lib/types";
@@ -63,7 +64,9 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
     return <ErrorState message={receiptErrorMessage(error)} />;
   }
 
-  return <ReceiptCard chain={chainKey} hash={hash} data={receiptData} />;
+  const timestamp = receiptData.block?.timestamp;
+  const relativeTime = formatBlockTimestampRelative(typeof timestamp === "string" ? timestamp : undefined);
+  return <ReceiptCard chain={chainKey} hash={hash} data={receiptData} relativeTime={relativeTime} />;
 }
 
 const NETWORK_ICON_FILES: Record<string, string> = {

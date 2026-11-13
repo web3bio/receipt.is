@@ -101,18 +101,17 @@ function parseLogTransfers(
   return out;
 }
 
-function mergeTransfers(...lists: Erc20Transfer[][]) {
-  const seen = new Set<string>();
-  const merged: Erc20Transfer[] = [];
-  for (const list of lists) {
-    for (const item of list) {
-      const k = transferKey(item);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      merged.push(item);
-    }
-  }
-  return merged;
+function mergeTransfers(indexed: Erc20Transfer[], logs: Erc20Transfer[]) {
+  const indexedByTransfer = new Map(indexed.map(item => [transferKey(item), item]));
+  const loggedTransfers = new Set<string>();
+  const merged = logs.map(log => {
+    const key = transferKey(log);
+    loggedTransfers.add(key);
+    return { ...indexedByTransfer.get(key), ...log };
+  });
+
+  // Separate on-chain events can have identical token, parties and amount.
+  return [...merged, ...indexed.filter(item => !loggedTransfers.has(transferKey(item)))];
 }
 
 function mapTxStatus(statusHex?: string | null) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   getChainDisplayName,
   getExplorerTxUrl,
@@ -12,7 +12,6 @@ import {
   formatAmount,
   formatBlockNumberReadable,
   formatBlockTimestamp,
-  formatBlockTimestampRelative,
   formatOverviewContractMethodPhrase,
   formatText,
   formatUsdFromTokenRaw,
@@ -22,7 +21,7 @@ import {
   type BlockTimestampMode,
 } from "@/lib/format";
 import { receiptParties, selectReceiptTransfer } from "@/lib/receipt-transfer";
-import type { SwapToken, TokenInfo, TxReceiptData } from "@/lib/types";
+import type { ReceiptMovement, SwapToken, TokenInfo, TxReceiptData } from "@/lib/types";
 import OverviewSection from "@/components/receipt-overview";
 import AddressSection from "@/components/receipt-address";
 import ReceiptSurface from "@/components/receipt-surface";
@@ -112,16 +111,24 @@ function avatarForTo(toAddress: string, data: TxReceiptData, fallback: string | 
   return fromMeta(data.calledContract) ?? fromMeta(data.tokenInfo) ?? fallback;
 }
 
+// The browser's timezone becomes available after the first render hydrates.
+const subscribeToHydration = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 export default function ReceiptCard({
   chain,
   hash,
   data,
+  relativeTime,
 }: {
   chain: string;
   hash: string;
   data: TxReceiptData;
+  relativeTime: string;
 }) {
   const [timeMode, setTimeMode] = useState<BlockTimestampMode>("local");
+  const hydrated = useSyncExternalStore(subscribeToHydration, getClientSnapshot, getServerSnapshot);
   const tx = data.transaction ?? {};
   const block = data.block ?? {};
   const txStatus = data.txStatus;
@@ -132,12 +139,28 @@ export default function ReceiptCard({
   const transfer = data.type === "contract_call" && !data.swap ? pricingTransfer : undefined;
   const details = data.nativeDetails;
   const primaryMove = details?.movements.length === 1 ? details.movements[0] : undefined;
-  const transferCount = details?.movements.length ?? 0;
+  const movements = details?.movements ?? (txStatus === "success"
+    ? data.erc20Transfers.transfers.flatMap((item): ReceiptMovement[] => {
+        const { from, to, value, contractAddress } = item;
+        if (!from || !to || !value || !contractAddress) return [];
+        const matchesToken = normalizeAddress(contractAddress) === normalizeAddress(
+          data.tokenInfo?.contractAddress ?? data.tokenInfoContractAddress ?? undefined,
+        );
+        const decimals = item.tokenDecimal ?? (matchesToken ? data.tokenInfo?.divisor : undefined);
+        if (!decimals || !/^\d{1,2}$/.test(decimals) || Number(decimals) > 80) {
+          return [{ from, to, amount: value, symbol: `base units (${contractAddress})` }];
+        }
+        const symbol = item.tokenSymbol || (matchesToken ? data.tokenInfo?.symbol : undefined);
+        return [{ from, to, amount: formatAmount(value, decimals), symbol: symbol || contractAddress }];
+      })
+    : []);
+  const transferCount = movements.length;
+  const hasMultipleTransfers = transferCount > 1;
   const entries = details?.entries ?? [];
   const inputs = entries.filter(({ label }) => label === "Input" || label === "Coinbase input").length;
   const outputs = entries.filter(({ label }) => label === "Output").length;
   const balanceChanges = entries.filter(({ label }) => label === "Balance change").length;
-  const transactionSummary = transferCount > 1
+  const transactionSummary = hasMultipleTransfers
     ? `${transferCount} transfers`
     : inputs || outputs
       ? `${inputs} ${inputs === 1 ? "input" : "inputs"} · ${outputs} ${outputs === 1 ? "output" : "outputs"}`
@@ -161,15 +184,8 @@ export default function ReceiptCard({
   const amount = primaryMove?.amount ?? (nativeTransfer
     ? formatAmount(String(tx.value), "18")
     : tokenDecimals !== undefined ? formatAmount(pricingTransfer?.value, tokenDecimals) : "-");
-  const blockTs = block.timestamp as string | undefined;
-  const timeText = useMemo(
-    () => formatBlockTimestamp(blockTs, timeMode),
-    [blockTs, timeMode],
-  );
-  const timeRelativeAgo = useMemo(
-    () => formatBlockTimestampRelative(blockTs),
-    [blockTs],
-  );
+  const blockTs = typeof block.timestamp === "string" ? block.timestamp : undefined;
+  const timeText = timeMode === "local" && !hydrated ? "-" : formatBlockTimestamp(blockTs, timeMode);
   const fromProfile = buildProfileView(data.from, fromAddress, Boolean(details));
   const toProfile = buildProfileView(data.to, toAddress, Boolean(details));
   const blockNumRaw = tx.blockNumber as string | undefined;
@@ -193,10 +209,15 @@ export default function ReceiptCard({
   const isSwap = data.type === "contract_call" && Boolean(data.swap);
   const isTransferLayout = !isSwap && (nativeTransfer || Boolean(transfer));
   const isContractCall =
-    !details && data.type === "contract_call" &&
+    !details && !hasMultipleTransfers && data.type === "contract_call" &&
     Boolean((toAddress ?? "").trim()) &&
     !isSwap &&
     !isTransferLayout;
+
+  const overviewVariant = isSwap ? "swap"
+    : isContractCall ? "contract_call"
+      : hasMultipleTransfers || (details && !primaryMove) ? "transaction"
+        : "token_transfer";
 
   const swapView = useMemo(() => {
     const swap = data.swap;
@@ -224,21 +245,21 @@ export default function ReceiptCard({
       </header>
 
       <OverviewSection
-        variant={isSwap ? "swap" : isContractCall ? "contract_call" : details && !primaryMove ? "transaction" : "token_transfer"}
+        variant={overviewVariant}
         methodPhrase={
           isContractCall
             ? formatOverviewContractMethodPhrase(data.functionName, data.functionSelector)
-            : details ? transactionSummary ?? formatOverviewContractMethodPhrase(data.functionName) : undefined
+            : transactionSummary ?? (details ? formatOverviewContractMethodPhrase(data.functionName) : undefined)
         }
         transactionNote={details && !primaryMove && !transactionSummary && !fromAddress && !toAddress
           ? "No transfer details available"
           : undefined}
-        usdValue={usdValue === "-" ? "" : usdValue}
+        usdValue={usdValue === "-" || (hasMultipleTransfers && !isSwap) ? "" : usdValue}
         preciseAmount={Boolean(details)}
         amount={amount}
         tokenSymbol={tokenSymbol}
         tokenLogoUrl={tokenLogoUrl}
-        blockTimestamp={blockTs}
+        relativeTime={relativeTime}
         chainName={isContractCall ? getChainDisplayName(chain) : undefined}
         dexName={isSwap ? (swapView?.dexName ?? null) : null}
         dexIcon={isSwap ? (swapView?.dexIcon ?? null) : null}
@@ -257,7 +278,7 @@ export default function ReceiptCard({
         }
       />
 
-      {(fromAddress || toAddress || !details) && (
+      {!hasMultipleTransfers && (fromAddress || toAddress || !details) && (
         <section className="receipt-flow" data-receipt-drag>
           <AddressSection
             title="FROM"
@@ -293,11 +314,11 @@ export default function ReceiptCard({
             <span className="receipt-detail-label">Time</span>
             <div className="receipt-detail-time">
               <span className="receipt-detail-time-main">
-                {timeRelativeAgo === "-" ? (
+                {relativeTime === "-" ? (
                   "-"
                 ) : (
                   <>
-                    {timeRelativeAgo}
+                    {relativeTime}
                     {timeText !== "-" && timeText.trim() !== "" ? (
                       <span className="receipt-detail-time-paren"> ({timeText})</span>
                     ) : null}
@@ -319,7 +340,7 @@ export default function ReceiptCard({
           <DetailRow label="Network" value={getChainDisplayName(chain)} />
           <DetailRow label="Block" value={blockNumberDisplay} />
           {details?.fee && <DetailRow label="Fee" value={details.fee} />}
-          {details && details.movements.length > 1 && details.movements.map((move, index) => (
+          {hasMultipleTransfers && movements.map((move, index) => (
             <DetailRow key={index} label="Transfer" value={`${move.amount} ${move.symbol} · ${move.from} → ${move.to}`} />
           ))}
           {details?.entries?.map((entry, index) => (

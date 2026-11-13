@@ -2,10 +2,7 @@
 
 import { useMemo } from "react";
 import ReceiptAvatar from "@/components/receipt-avatar";
-import {
-  formatBlockTimestampRelative,
-  formatTokenAmountTwoDecimals,
-} from "@/lib/format";
+import { formatTokenAmount } from "@/lib/format";
 
 type OverviewVariant = "contract_call" | "token_transfer" | "swap" | "transaction";
 
@@ -24,7 +21,7 @@ export type OverviewCardProps = {
   amount: string;
   tokenSymbol: string;
   tokenLogoUrl?: string | null;
-  blockTimestamp?: string;
+  relativeTime: string;
   fromIdentityText: string;
   fromAvatarUrl?: string | null;
   toIdentityText: string;
@@ -136,7 +133,7 @@ function SwapTokenInline({ token }: { token: SwapTokenView }) {
           />
         </span>
       ) : null}
-      <strong>{formatTokenAmountTwoDecimals(token.amount)}</strong>
+      <strong>{formatTokenAmount(token.amount)}</strong>
       <span className="receipt-overview-symbol">{token.symbol}</span>
     </span>
   );
@@ -151,7 +148,7 @@ export default function OverviewSection({
   amount,
   tokenSymbol,
   tokenLogoUrl,
-  blockTimestamp,
+  relativeTime,
   fromIdentityText,
   fromAvatarUrl,
   toIdentityText,
@@ -161,12 +158,8 @@ export default function OverviewSection({
   dexIcon,
   swap,
 }: OverviewCardProps) {
-  const relativeTime = useMemo(
-    () => formatBlockTimestampRelative(blockTimestamp),
-    [blockTimestamp],
-  );
   const displayAmount = useMemo(
-    () => amount === "-" ? "—" : preciseAmount ? amount : formatTokenAmountTwoDecimals(amount),
+    () => amount === "-" ? "—" : preciseAmount ? amount : formatTokenAmount(amount),
     [amount, preciseAmount],
   );
   const price = usdValue.trim();

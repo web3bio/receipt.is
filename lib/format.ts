@@ -123,13 +123,14 @@ export function formatAmount(value?: string, decimals?: string) {
   }
 }
 
-export function formatTokenAmountTwoDecimals(raw: string) {
+export function formatTokenAmount(raw: string) {
   const s = String(raw ?? "")
     .trim()
     .replace(/,/g, "");
   if (s === "" || s === "-") return "0.00";
   const n = Number(s);
   if (!Number.isFinite(n)) return String(raw ?? "").trim() || "0.00";
+  if (n !== 0 && Math.abs(n) < 0.01) return s;
   return n.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

@@ -3,7 +3,8 @@ import { buildNativeReceipt } from "@/lib/native-receipt";
 import { buildTxReceipt } from "@/lib/tx-receipt";
 import type { TxReceiptPayload } from "@/lib/types";
 
-const RECEIPT_CACHE = "receipt-tx-v1";
+const NATIVE_RECEIPT_CACHE = "receipt-tx-v1";
+const EVM_RECEIPT_CACHE = "receipt-evm-tx-v2";
 const RECEIPT_TTL_SECONDS = 365 * 24 * 60 * 60;
 
 export async function getCachedTxReceipt(
@@ -23,7 +24,8 @@ export async function getCachedTxReceipt(
   const key = `https://${host}/_receipt-cache/${chain}/${encodeURIComponent(normalizedHash)}`;
   let cache: Cache | undefined;
   try {
-    cache = await caches.open(RECEIPT_CACHE);
+    // Older EVM payloads may have dropped identical transfer events.
+    cache = await caches.open(isNativeChain(chain) ? NATIVE_RECEIPT_CACHE : EVM_RECEIPT_CACHE);
     const hit = await cache.match(key);
     if (hit) return (await hit.json()) as TxReceiptPayload;
   } catch {
