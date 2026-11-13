@@ -39,21 +39,21 @@ function formatAddressDisplay(value: string | undefined, compact: boolean) {
   return compact || /^0x[a-fA-F0-9]+$/.test(value) ? formatText(value, 14) : value;
 }
 
-function buildProfileView(profile: ParsedProfile, fallbackAddress?: string, native = false): ProfileView {
-  const identityText = formatAddressDisplay(profile.identity ?? fallbackAddress, native);
-  const avatarIdentity = fallbackAddress || profile.identity;
+function buildProfileView(profile: ParsedProfile | undefined, fallbackAddress?: string, native = false): ProfileView {
+  const identityText = formatAddressDisplay(profile?.identity ?? fallbackAddress, native);
+  const avatarIdentity = fallbackAddress || profile?.identity;
   const fallbackAvatar = !native && avatarIdentity
     ? `https://api.web3.bio/avatar/${encodeURIComponent(avatarIdentity)}`
     : null;
   const displayLabel =
-    profile.displayName && identityText
-      ? `${profile.displayName} (${identityText})`
-      : profile.displayName || identityText;
+    profile?.displayName && identityText
+      ? `${profile?.displayName} (${identityText})`
+      : profile?.displayName || identityText;
   return {
     identityText,
     displayLabel,
-    addressValue: fallbackAddress ?? profile.address ?? undefined,
-    avatarUrl: profile.avatar ?? fallbackAvatar,
+    addressValue: fallbackAddress ?? profile?.address ?? undefined,
+    avatarUrl: profile?.avatar ?? fallbackAvatar,
   };
 }
 

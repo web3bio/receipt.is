@@ -77,8 +77,8 @@ export type TxReceiptData = Pick<TxReceiptPayload,
   blockTimestamp?: string;
   transfers: ReceiptTransferData[];
   nativeDetails?: Omit<NativeReceiptDetails, "finalized">;
-  from: ParsedProfile;
-  to: ParsedProfile;
+  from?: ParsedProfile;
+  to?: ParsedProfile;
 };
 
 export function toReceiptData(payload: TxReceiptPayload): TxReceiptData {
@@ -106,8 +106,8 @@ export function toReceiptData(payload: TxReceiptPayload): TxReceiptData {
       movements: details.movements,
       entries: details.entries,
     },
-    from: parseProfile(payload.from),
-    to: parseProfile(payload.to),
+    from: Object.keys(payload.from).length ? parseProfile(payload.from) : undefined,
+    to: Object.keys(payload.to).length ? parseProfile(payload.to) : undefined,
   };
 }
 
