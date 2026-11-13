@@ -173,6 +173,8 @@ async function buildSwapToken(
     transfers: Erc20Transfer[];
     tokenInfo: TokenInfo | null;
     tokenInfoContract: string | null;
+    rpcUrl?: string;
+    blockNumber?: string | null;
   },
 ): Promise<SwapToken | null> {
   if (!contractLower) {
@@ -188,31 +190,26 @@ async function buildSwapToken(
       ? hint.tokenInfo
       : null;
 
-  const symbolHint = matchInfo?.symbol?.trim() || meta?.tokenSymbol?.trim();
-  const decimalsHintRaw =
-    matchInfo?.divisor?.trim() || meta?.tokenDecimal?.trim();
-  const decimalsHintN = decimalsHintRaw
-    ? Number.parseInt(decimalsHintRaw, 10)
-    : Number.NaN;
-  const hasUsableDecimals = Number.isFinite(decimalsHintN) && decimalsHintN >= 0;
-  const imageHint = matchInfo?.image?.trim() || null;
-
-  let extra: TokenInfo | null = null;
-  if (!symbolHint || !hasUsableDecimals || !imageHint) {
-    extra = await fetchTokenInfo(chain, contractLower);
+  let info = matchInfo;
+  let symbol = info?.symbol?.trim() || meta?.tokenSymbol?.trim();
+  let decimals = info?.divisor ?? meta?.tokenDecimal;
+  if (!symbol || decimals == null) {
+    info = hint.rpcUrl && hint.blockNumber
+      ? await fillRpcTokenInfo(hint.rpcUrl, contractLower, hint.blockNumber, info)
+      : info ?? await fetchTokenInfo(chain, contractLower);
+    symbol ||= info?.symbol?.trim();
+    decimals ??= info?.divisor;
   }
 
+  if (decimals == null || !/^\d{1,2}$/.test(decimals) || Number(decimals) > 80) return null;
   return {
     isNative: false,
     contractAddress: contractLower,
-    symbol: symbolHint || extra?.symbol || "TOKEN",
-    decimals: hasUsableDecimals
-      ? String(decimalsHintN)
-      : (extra?.divisor ?? "18"),
+    symbol: symbol || contractLower,
+    decimals,
     rawAmount: rawAmount.toString(),
-    tokenName:
-      matchInfo?.tokenName ?? meta?.tokenName ?? extra?.tokenName ?? null,
-    image: imageHint || extra?.image || null,
+    tokenName: info?.tokenName ?? meta?.tokenName ?? null,
+    image: info?.image ?? null,
   };
 }
 
@@ -225,7 +222,9 @@ async function detectSwap(
   transfers: Erc20Transfer[],
   knownTokenInfo: TokenInfo | null,
   knownTokenInfoContract: string | null,
-  loadInternalNativeNet?: (address: string) => Promise<bigint>,
+  loadInternalNativeNet: ((address: string) => Promise<bigint>) | undefined,
+  rpcUrl: string | undefined,
+  blockNumber: string | null,
 ): Promise<SwapInfo | null> {
   if (txStatus !== "success") return null;
 
@@ -307,9 +306,13 @@ async function detectSwap(
     transfers,
     tokenInfo: knownTokenInfo,
     tokenInfoContract: knownTokenInfoContract,
+    rpcUrl,
+    blockNumber,
   };
-  const fromToken = await buildSwapToken(chain, outContract, outRaw, hint);
-  const toToken = await buildSwapToken(chain, inContract, inRaw, hint);
+  const [fromToken, toToken] = await Promise.all([
+    buildSwapToken(chain, outContract, outRaw, hint),
+    buildSwapToken(chain, inContract, inRaw, hint),
+  ]);
   if (!fromToken || !toToken) return null;
 
   return {
@@ -411,9 +414,7 @@ export async function buildTxReceipt(
     Boolean(transaction.to) && input !== "0x" && input !== "0x0";
   const functionSelector = isContractCall ? input.slice(0, 10) : null;
   const functionName = functionSelector
-    ? rpcUrl
-      ? await resolveFunctionName(functionSelector, AbortSignal.timeout(RPC_ENRICHMENT_TIMEOUT_MS)).catch(() => null)
-      : await resolveFunctionName(functionSelector)
+    ? await resolveFunctionName(functionSelector, AbortSignal.timeout(RPC_ENRICHMENT_TIMEOUT_MS)).catch(() => null)
     : null;
   const contractAddress =
     (receipt?.contractAddress as string | null | undefined) ??
@@ -425,16 +426,15 @@ export async function buildTxReceipt(
     transaction.to as string | undefined,
     (receipt?.contractAddress as string | undefined) ?? undefined,
   ]);
-  const tokentxTransfers =
-    etherscanKey && erc20Addresses.length > 0
-      ? await fetchErc20TransfersForTx(chainId, etherscanKey, hash, erc20Addresses)
-      : [];
   const blockTs = (block?.timestamp as string | undefined) ?? undefined;
   const logTransfers = parseLogTransfers(receipt, hash, {
     blockNumber,
     timeStamp: blockTs,
-    nativeToken: ["lens", "zksync", "abstract"].includes(chain) ? ZK_STACK_NATIVE_TOKEN : undefined,
+    nativeToken: ["lens", "zksync"].includes(chain) ? ZK_STACK_NATIVE_TOKEN : undefined,
   });
+  const tokentxTransfers = etherscanKey && logTransfers.length > 0
+    ? await fetchErc20TransfersForTx(chainId, etherscanKey, hash, erc20Addresses).catch(() => [])
+    : [];
   const erc20Transfers = mergeTransfers(tokentxTransfers, logTransfers);
   const tokenContracts = uniqAddresses(erc20Transfers.map((t) => t.contractAddress));
   const { tokenInfo: indexedTokenInfo, contractAddress: tokenInfoContractAddress } =
@@ -497,6 +497,8 @@ export async function buildTxReceipt(
           etherscanKey
             ? (address) => fetchInternalNativeNet(chainId, etherscanKey, hash, address)
             : undefined,
+          rpcUrl,
+          blockNumber,
         )
       : null;
 

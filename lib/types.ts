@@ -1,3 +1,5 @@
+import { parseProfile, type ParsedProfile } from "@/lib/format";
+
 export type JsonRecord = Record<string, unknown>;
 
 export type Erc20Transfer = {
@@ -65,15 +67,48 @@ export type TxReceiptPayload = {
   to: JsonRecord;
 };
 
-export type TxReceiptData = Omit<
-  TxReceiptPayload,
-  "chain" | "chainId" | "hash"
->;
+type ReceiptTransferData = Pick<Erc20Transfer, "from" | "to" | "value" | "contractAddress" | "tokenSymbol" | "tokenDecimal">;
+
+export type TxReceiptData = Pick<TxReceiptPayload,
+  "type" | "txStatus" | "functionName" | "functionSelector" |
+  "tokenInfo" | "tokenInfoContractAddress" | "calledContract" | "ethUsd" | "swap"
+> & {
+  transaction: Pick<JsonRecord, "from" | "to" | "value" | "blockNumber">;
+  blockTimestamp?: string;
+  transfers: ReceiptTransferData[];
+  nativeDetails?: Omit<NativeReceiptDetails, "finalized">;
+  from: ParsedProfile;
+  to: ParsedProfile;
+};
 
 export function toReceiptData(payload: TxReceiptPayload): TxReceiptData {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip route fields for the view model
-  const { chain, chainId, hash, ...data } = payload;
-  return data;
+  const {
+    type, txStatus, functionName, functionSelector, tokenInfo,
+    tokenInfoContractAddress, calledContract, ethUsd, swap,
+  } = payload;
+  const { from, to, value, blockNumber } = payload.transaction;
+  const details = payload.nativeDetails;
+  const timestamp = payload.block?.timestamp;
+  return {
+    type, txStatus, functionName, functionSelector, tokenInfo,
+    tokenInfoContractAddress, calledContract, ethUsd, swap,
+    transaction: { from, to, value, blockNumber },
+    blockTimestamp: typeof timestamp === "string" ? timestamp : undefined,
+    transfers: payload.erc20Transfers.transfers.map(transfer => {
+      const { from, to, value, contractAddress, tokenSymbol, tokenDecimal } = transfer;
+      return { from, to, value, contractAddress, tokenSymbol, tokenDecimal };
+    }),
+    nativeDetails: details && {
+      from: details.from,
+      to: details.to,
+      fee: details.fee,
+      explorerUrl: details.explorerUrl,
+      movements: details.movements,
+      entries: details.entries,
+    },
+    from: parseProfile(payload.from),
+    to: parseProfile(payload.to),
+  };
 }
 
 export type ReceiptMovement = {

@@ -402,6 +402,12 @@ body {
   }
 }
 
+.receipt-transfer-route {
+  color: $receipt-muted;
+  display: block;
+  font-size: variables.$font-size-sm;
+}
+
 .receipt-detail-row[data-detail="Network"] .receipt-detail-value {
   align-items: center;
   color: var(--receipt-accent);
@@ -613,6 +619,29 @@ body {
     letter-spacing: -0.025em;
     line-height: 1.1;
     overflow-wrap: anywhere;
+  }
+}
+
+.receipt-token-amount-toggle {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: inline;
+  font: inherit;
+  font-variant-numeric: inherit;
+  letter-spacing: inherit;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 0;
+  text-align: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 0.18em;
+  vertical-align: baseline;
+
+  &:focus-visible {
+    outline: 2px solid var(--receipt-accent);
+    outline-offset: 2px;
   }
 }
 

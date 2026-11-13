@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
 import ReceiptAvatar from "@/components/receipt-avatar";
-import { formatTokenAmount } from "@/lib/format";
+import ReceiptTokenAmount from "@/components/receipt-token-amount";
 
 type OverviewVariant = "contract_call" | "token_transfer" | "swap" | "transaction";
 
@@ -16,7 +15,6 @@ export type OverviewCardProps = {
   variant: OverviewVariant;
   methodPhrase?: string;
   transactionNote?: string;
-  preciseAmount?: boolean;
   usdValue: string;
   amount: string;
   tokenSymbol: string;
@@ -133,7 +131,7 @@ function SwapTokenInline({ token }: { token: SwapTokenView }) {
           />
         </span>
       ) : null}
-      <strong>{formatTokenAmount(token.amount)}</strong>
+      <strong><ReceiptTokenAmount amount={token.amount} /></strong>
       <span className="receipt-overview-symbol">{token.symbol}</span>
     </span>
   );
@@ -143,7 +141,6 @@ export default function OverviewSection({
   variant,
   methodPhrase,
   transactionNote,
-  preciseAmount,
   usdValue,
   amount,
   tokenSymbol,
@@ -158,10 +155,6 @@ export default function OverviewSection({
   dexIcon,
   swap,
 }: OverviewCardProps) {
-  const displayAmount = useMemo(
-    () => amount === "-" ? "—" : preciseAmount ? amount : formatTokenAmount(amount),
-    [amount, preciseAmount],
-  );
   const price = usdValue.trim();
   const title = (methodPhrase ?? "").trim() || "Contract";
 
@@ -243,7 +236,7 @@ export default function OverviewSection({
                 />
               </span>
             ) : null}
-            <strong>{displayAmount}</strong>
+            <strong><ReceiptTokenAmount amount={amount} /></strong>
             <span className="receipt-overview-symbol">{tokenSymbol}</span>
           </span>
         </p>

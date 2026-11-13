@@ -21,8 +21,8 @@ importers:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
       web3bio-profile-kit:
-        specifier: ^0.2.9
-        version: 0.2.9(@tanstack/react-query@5.107.1)(react-dom@19.2.4)(react@19.2.4)
+        specifier: 0.2.22
+        version: 0.2.22(@tanstack/react-query@5.107.1)(react-dom@19.2.4)(react@19.2.4)
     devDependencies:
       '@opennextjs/cloudflare':
         specifier: ^1.19.0
@@ -6044,8 +6044,8 @@ packages:
     engines: {node: '>= 14'}
     dev: true
 
-  /web3bio-profile-kit@0.2.9(@tanstack/react-query@5.107.1)(react-dom@19.2.4)(react@19.2.4):
-    resolution: {integrity: sha512-EnL6mZKFcuCG4X1CQlBtARx85ajS+wTpvrFe0I6QPDZyIxpEhT6bDhfE/CibosExQHzUDWxtrE1w5+blFofc+w==}
+  /web3bio-profile-kit@0.2.22(@tanstack/react-query@5.107.1)(react-dom@19.2.4)(react@19.2.4):
+    resolution: {integrity: sha512-NOtXxu84wzyokE9bxEkURU5Y0yat6Frqlf/bxNLaA42JtyiwYj3iSIAwXIqqnfxFRIaUDfE24//CbaiQ0kFVJQ==}
     peerDependencies:
       '@tanstack/react-query': ^4.0.0 || ^5.0.0
       react: '>=16.8.0'

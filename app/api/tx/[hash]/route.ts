@@ -4,7 +4,7 @@ import {
   isValidTransactionId,
   normalizeChain,
   SUPPORTED_CHAINS,
-  SUPPORTED_CHAIN_SET,
+  getReceiptNetwork,
 } from "@/lib/chain";
 import { getPublicRpcUrl } from "@/lib/evm-rpc";
 import { receiptErrorMessage, receiptErrorStatus } from "@/lib/tx-errors";
@@ -29,7 +29,7 @@ export async function GET(
       );
     }
 
-    if (!SUPPORTED_CHAIN_SET.has(chain)) {
+    if (!getReceiptNetwork(chain)) {
       return Response.json(
         {
           error: `Unsupported chain '${chain}'. Supported: ${SUPPORTED_CHAINS.join(", ")}.`,

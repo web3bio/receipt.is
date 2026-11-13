@@ -124,17 +124,32 @@ export function formatAmount(value?: string, decimals?: string) {
 }
 
 export function formatTokenAmount(raw: string) {
-  const s = String(raw ?? "")
-    .trim()
-    .replace(/,/g, "");
-  if (s === "" || s === "-") return "0.00";
-  const n = Number(s);
-  if (!Number.isFinite(n)) return String(raw ?? "").trim() || "0.00";
-  if (n !== 0 && Math.abs(n) < 0.01) return s;
-  return n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(raw.trim().replace(/,/g, ""));
+  if (!match) return { text: raw === "-" ? "—" : raw, approximate: false };
+
+  const [, sign, whole, fraction = ""] = match;
+  const integer = whole.replace(/^0+(?=\d)/, "");
+  const decimals = fraction.replace(/0+$/, "");
+  const firstNonzero = decimals.search(/[1-9]/);
+  const large = integer.length > 12;
+  const small = integer === "0" && decimals.length > 6 && firstNonzero >= 4;
+
+  if (large || small) {
+    const digits = large ? integer + decimals : decimals.slice(firstNonzero);
+    const exponent = large ? integer.length - 1 : -(firstNonzero + 1);
+    const coefficient = digits.slice(1, 6).replace(/0+$/, "");
+    return {
+      text: `${sign}${digits[0]}${coefficient ? `.${coefficient}` : ""}e${exponent}`,
+      approximate: /[1-9]/.test(digits.slice(6)),
+    };
+  }
+
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const visible = decimals.slice(0, 6).replace(/0+$/, "");
+  return {
+    text: `${sign}${grouped}${visible ? `.${visible}` : ""}`,
+    approximate: decimals.length > 6,
+  };
 }
 
 const USD_PRICE_SCALE = 8;

@@ -25,7 +25,6 @@ const NATIVE_COINGECKO_ID: Record<SupportedChain, string> = {
   scroll: "ethereum",
   linea: "ethereum",
   zksync: "ethereum",
-  abstract: "ethereum",
   zora: "ethereum",
   nova: "ethereum",
   xlayer: "okb",

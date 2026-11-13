@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   getChainDisplayName,
   getExplorerTxUrl,
@@ -17,14 +17,15 @@ import {
   formatUsdFromTokenRaw,
   getStatusClass,
   getStatusLabel,
-  parseProfile,
   type BlockTimestampMode,
+  type ParsedProfile,
 } from "@/lib/format";
 import { receiptParties, selectReceiptTransfer } from "@/lib/receipt-transfer";
 import type { ReceiptMovement, SwapToken, TokenInfo, TxReceiptData } from "@/lib/types";
 import OverviewSection from "@/components/receipt-overview";
 import AddressSection from "@/components/receipt-address";
 import ReceiptSurface from "@/components/receipt-surface";
+import ReceiptTokenAmount from "@/components/receipt-token-amount";
 
 type ProfileView = {
   identityText: string;
@@ -38,8 +39,7 @@ function formatAddressDisplay(value: string | undefined, compact: boolean) {
   return compact || /^0x[a-fA-F0-9]+$/.test(value) ? formatText(value, 14) : value;
 }
 
-function buildProfileView(rawProfile: unknown, fallbackAddress?: string, native = false): ProfileView {
-  const profile = parseProfile(rawProfile);
+function buildProfileView(profile: ParsedProfile, fallbackAddress?: string, native = false): ProfileView {
   const identityText = formatAddressDisplay(profile.identity ?? fallbackAddress, native);
   const avatarIdentity = fallbackAddress || profile.identity;
   const fallbackAvatar = !native && avatarIdentity
@@ -69,13 +69,20 @@ function ShareButton() {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <li className="receipt-detail-row" data-detail={label}>
       <span className="receipt-detail-label">{label}</span>
       <span className="receipt-detail-value">{value}</span>
     </li>
   );
+}
+
+function DetailAmount({ value }: { value: string }) {
+  const match = /^([+-]?\d+(?:\.\d+)?)(.*)$/.exec(value);
+  if (!match) return <>{value}</>;
+  const [, amount, unit] = match;
+  return <><ReceiptTokenAmount amount={amount} />{unit}</>;
 }
 
 function contractLabelForTo(
@@ -129,28 +136,31 @@ export default function ReceiptCard({
 }) {
   const [timeMode, setTimeMode] = useState<BlockTimestampMode>("local");
   const hydrated = useSyncExternalStore(subscribeToHydration, getClientSnapshot, getServerSnapshot);
-  const tx = data.transaction ?? {};
-  const block = data.block ?? {};
+  const tx = data.transaction;
   const txStatus = data.txStatus;
   const pricingTransfer = selectReceiptTransfer(
-    data.erc20Transfers.transfers,
+    data.transfers,
     data.tokenInfoContractAddress,
   );
   const transfer = data.type === "contract_call" && !data.swap ? pricingTransfer : undefined;
   const details = data.nativeDetails;
   const primaryMove = details?.movements.length === 1 ? details.movements[0] : undefined;
   const movements = details?.movements ?? (txStatus === "success"
-    ? data.erc20Transfers.transfers.flatMap((item): ReceiptMovement[] => {
+    ? data.transfers.flatMap((item): ReceiptMovement[] => {
         const { from, to, value, contractAddress } = item;
         if (!from || !to || !value || !contractAddress) return [];
-        const matchesToken = normalizeAddress(contractAddress) === normalizeAddress(
+        const contract = normalizeAddress(contractAddress);
+        const matchesToken = contract === normalizeAddress(
           data.tokenInfo?.contractAddress ?? data.tokenInfoContractAddress ?? undefined,
         );
-        const decimals = item.tokenDecimal ?? (matchesToken ? data.tokenInfo?.divisor : undefined);
+        const swapToken = [data.swap?.fromToken, data.swap?.toToken].find(
+          token => token?.contractAddress === contract,
+        );
+        const decimals = item.tokenDecimal ?? swapToken?.decimals ?? (matchesToken ? data.tokenInfo?.divisor : undefined);
         if (!decimals || !/^\d{1,2}$/.test(decimals) || Number(decimals) > 80) {
           return [{ from, to, amount: value, symbol: `base units (${contractAddress})` }];
         }
-        const symbol = item.tokenSymbol || (matchesToken ? data.tokenInfo?.symbol : undefined);
+        const symbol = item.tokenSymbol || swapToken?.symbol || (matchesToken ? data.tokenInfo?.symbol : undefined);
         return [{ from, to, amount: formatAmount(value, decimals), symbol: symbol || contractAddress }];
       })
     : []);
@@ -184,7 +194,7 @@ export default function ReceiptCard({
   const amount = primaryMove?.amount ?? (nativeTransfer
     ? formatAmount(String(tx.value), "18")
     : tokenDecimals !== undefined ? formatAmount(pricingTransfer?.value, tokenDecimals) : "-");
-  const blockTs = typeof block.timestamp === "string" ? block.timestamp : undefined;
+  const blockTs = data.blockTimestamp;
   const timeText = timeMode === "local" && !hydrated ? "-" : formatBlockTimestamp(blockTs, timeMode);
   const fromProfile = buildProfileView(data.from, fromAddress, Boolean(details));
   const toProfile = buildProfileView(data.to, toAddress, Boolean(details));
@@ -255,7 +265,6 @@ export default function ReceiptCard({
           ? "No transfer details available"
           : undefined}
         usdValue={usdValue === "-" || (hasMultipleTransfers && !isSwap) ? "" : usdValue}
-        preciseAmount={Boolean(details)}
         amount={amount}
         tokenSymbol={tokenSymbol}
         tokenLogoUrl={tokenLogoUrl}
@@ -339,12 +348,26 @@ export default function ReceiptCard({
           </li>
           <DetailRow label="Network" value={getChainDisplayName(chain)} />
           <DetailRow label="Block" value={blockNumberDisplay} />
-          {details?.fee && <DetailRow label="Fee" value={details.fee} />}
+          {details?.fee && <DetailRow label="Fee" value={<DetailAmount value={details.fee} />} />}
           {hasMultipleTransfers && movements.map((move, index) => (
-            <DetailRow key={index} label="Transfer" value={`${move.amount} ${move.symbol} · ${move.from} → ${move.to}`} />
+            <DetailRow
+              key={index}
+              label="Transfer"
+              value={
+                <>
+                  <span><ReceiptTokenAmount amount={move.amount} /> {move.symbol}</span>
+                  <span className="receipt-transfer-route">
+                    {move.from} → {move.to}
+                  </span>
+                </>
+              }
+            />
           ))}
-          {details?.entries?.map((entry, index) => (
-            <DetailRow key={index} label={entry.label} value={[entry.value, entry.address].filter(Boolean).join(" · ") || "-"} />
+          {entries.map((entry, index) => (
+            <DetailRow key={index} label={entry.label} value={
+              entry.value ? <><DetailAmount value={entry.value} />{entry.address && ` · ${entry.address}`}</>
+                : entry.address || "-"
+            } />
           ))}
           <li className="receipt-detail-row">
             <span className="receipt-detail-label">Transaction Hash</span>

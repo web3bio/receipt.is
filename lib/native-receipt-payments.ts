@@ -75,35 +75,6 @@ export async function readTronReceipt(hash: string): Promise<NativeResult> {
   };
 }
 
-export async function readXrplReceipt(hash: string): Promise<NativeResult> {
-  const data = await read(endpoint("xrpl", "https://s1.ripple.com:51234"), {
-    method: "tx", params: [{ transaction: hash.toUpperCase(), binary: false, api_version: 2 }],
-  });
-  const result = obj(data.result);
-  if (result.error === "txnNotFound") missing();
-  if (result.error) throw new Error("XRP Ledger RPC rejected the request.");
-  const tx = obj(result.tx_json ?? result);
-  checkId(result.hash ?? tx.hash, hash);
-  const meta = obj(result.meta);
-  const finalized = result.validated === true;
-  const status = !finalized ? "pending_or_unknown" : meta.TransactionResult === "tesSUCCESS" ? "success" : "failed";
-  const raw = meta.delivered_amount;
-  const issued = obj(raw);
-  const coin = str(issued.currency);
-  const issuer = str(issued.issuer);
-  const symbol = coin ? (issuer ? `${coin} (${issuer})` : coin) : "XRP";
-  const amount = coin ? str(issued.value) : units(raw, 6);
-  const transfer = status === "success" && tx.TransactionType === "Payment"
-    ? movement(tx.Account, tx.Destination, amount, symbol) : undefined;
-  const date = integer(tx.date ?? result.date);
-  return {
-    status, finalized, block: str(result.ledger_index), from: str(tx.Account), to: str(tx.Destination),
-    timestamp: date !== undefined ? String(date + BigInt(946684800)) : undefined,
-    fee: fee(tx.Fee, 6, "XRP"), method: str(tx.TransactionType),
-    movements: transfer ? [transfer] : [],
-  };
-}
-
 export async function readAptosReceipt(hash: string): Promise<NativeResult> {
   const root = endpoint("aptos", "https://api.mainnet.aptoslabs.com/v1");
   const tx = await read(`${root}/transactions/by_hash/${hash}`);

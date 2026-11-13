@@ -17,7 +17,7 @@
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "web3bio-profile-kit": "^0.2.9"
+    "web3bio-profile-kit": "0.2.22"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.19.0",

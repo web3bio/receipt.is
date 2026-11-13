@@ -9,11 +9,11 @@ Transaction receipt viewer for EVM and other blockchain networks.
 | Ethereum | `eth` | 1 | Etherscan V2 |
 | Base | `base` | 8453 | Etherscan V2 |
 | BNB Chain | `bsc` | 56 | Etherscan V2 |
-| Arbitrum One | `arb` | 42161 | Etherscan V2 |
+| Arbitrum | `arb` | 42161 | Etherscan V2 |
 | Optimism | `op` | 10 | Etherscan V2 |
 | Lens | `lens` | 232 | Public RPC |
 | Polygon | `polygon` | 137 | Public RPC |
-| Avalanche C-Chain | `avalanche` | 43114 | Public RPC |
+| Avalanche | `avalanche` | 43114 | Public RPC |
 | Gnosis | `gnosis` | 100 | Public RPC |
 | Mantle | `mantle` | 5000 | Public RPC |
 | World Chain | `world` | 480 | Public RPC |
@@ -21,20 +21,19 @@ Transaction receipt viewer for EVM and other blockchain networks.
 | Unichain | `unichain` | 130 | Public RPC |
 | Scroll | `scroll` | 534352 | Public RPC |
 | Linea | `linea` | 59144 | Public RPC |
-| ZKsync Era | `zksync` | 324 | Public RPC |
-| Abstract | `abstract` | 2741 | Public RPC |
+| zkSync Era | `zksync` | 324 | Public RPC |
 | Zora | `zora` | 7777777 | Public RPC |
 | Arbitrum Nova | `nova` | 42170 | Public RPC |
 | X Layer | `xlayer` | 196 | Public RPC |
 | ApeChain | `apechain` | 33139 | Public RPC |
-| Flow EVM | `flow` | 747 | Public RPC |
-| Fantom Opera | `fantom` | 250 | Public RPC |
+| Flow | `flow` | 747 | Public RPC |
+| Fantom | `fantom` | 250 | Public RPC |
 | Conflux eSpace | `conflux` | 1030 | Public RPC |
 
 Use `/<chain>/<txHash>` for the receipt page or
 `/api/tx/<txHash>?chain=<chain>` for JSON. Receipt defines the supported route
 aliases in [`lib/chain.ts`](lib/chain.ts) and uses `web3bio-profile-kit` for
-network names, chain IDs, native symbols, explorer links, colors, and public RPC defaults.
+network names, chain IDs, native symbols, explorer links, colors, icons, and public RPC defaults.
 
 ## Public RPC receipts
 
@@ -47,11 +46,6 @@ the sender and recipient from the same receipt log as its amount. USD values are
 shown when a price is available. A swap that needs internal native transfer
 traces may appear as a contract call.
 
-For local development before the updated kit is published, build and pack the
-kit from its checkout, then install the tarball in Receipt with
-`npm install --no-save --package-lock=false /path/to/web3bio-profile-kit.tgz`.
-Update the Receipt dependency and lockfiles after the kit is released.
-
 ## Networks with their own transaction format
 
 Use the same routes with the network's transaction ID. Solana accepts a
@@ -61,10 +55,9 @@ NEAR, Sui and Arweave IDs also preserve case.
 | Network | Route | Data source and display |
 |---------|-------|-------------------------|
 | Bitcoin | `bitcoin`, `btc` | Esplora inputs, outputs, confirmations and fee |
-| Litecoin, Dogecoin | `litecoin`, `dogecoin` | BlockCypher inputs, outputs, confirmations and fee |
+| Doge | `doge`, `dogecoin` | Dogechain API inputs, outputs, confirmations and fee |
 | TRON | `tron` | FullNode and SolidityNode. TRX and USDT transfers |
 | Aptos | `aptos` | Aptos REST. Direct APT transfers, status and gas |
-| XRP Ledger | `xrpl` | XRPL JSON-RPC. Payments using the amount actually delivered |
 | Sui | `sui` | Sui GraphQL. Direct SUI transfers from the gas coin, balance changes, status and gas |
 | Starknet | `starknet` | Starknet RPC. ETH and STRK transfer events |
 | TON | `ton` | TON Center. TON and Jetton actions |

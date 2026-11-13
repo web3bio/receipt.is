@@ -8,7 +8,6 @@ import {
   isValidTransactionId,
   normalizeChain,
   SUPPORTED_CHAINS,
-  SUPPORTED_CHAIN_SET,
 } from "@/lib/chain";
 import { getPublicRpcUrl } from "@/lib/evm-rpc";
 import { formatBlockTimestampRelative } from "@/lib/format";
@@ -37,7 +36,7 @@ function ErrorState({ message }: { message: string }) {
 async function TxContent({ chain, hash }: { chain: string; hash: string }) {
   const chainKey = normalizeChain(chain);
 
-  if (!SUPPORTED_CHAIN_SET.has(chainKey)) {
+  if (!getReceiptNetwork(chainKey)) {
     return (
       <ErrorState
         message={`Unsupported chain '${chain}'. Supported: ${SUPPORTED_CHAINS.join(", ")}.`}
@@ -64,29 +63,20 @@ async function TxContent({ chain, hash }: { chain: string; hash: string }) {
     return <ErrorState message={receiptErrorMessage(error)} />;
   }
 
-  const timestamp = receiptData.block?.timestamp;
-  const relativeTime = formatBlockTimestampRelative(typeof timestamp === "string" ? timestamp : undefined);
+  const relativeTime = formatBlockTimestampRelative(receiptData.blockTimestamp);
   return <ReceiptCard chain={chainKey} hash={hash} data={receiptData} relativeTime={relativeTime} />;
 }
-
-const NETWORK_ICON_FILES: Record<string, string> = {
-  ethereum: "eth",
-  arbitrum: "arb",
-  optimism: "op",
-  doge: "dogecoin",
-};
 
 export default async function TxPage({ params }: PageProps) {
   const { chain, hash } = await params;
 
   const chainKey = normalizeChain(chain);
   const network = getReceiptNetwork(chainKey);
-  const icon = network?.icon.match(/^icons\/icon-([a-z0-9-]+)\.svg$/)?.[1];
   const theme = network ? {
     "--receipt-chain-color": network.primaryColor,
     "--receipt-chain-background": network.bgColor,
-    "--receipt-network-icon": icon ? `url("/networks/${NETWORK_ICON_FILES[icon] ?? icon}.svg")` : undefined,
-    "--receipt-watermark": icon ? '""' : undefined,
+    "--receipt-network-icon": `url("/kit/${network.icon}")`,
+    "--receipt-watermark": '""',
   } as CSSProperties : undefined;
 
   return (

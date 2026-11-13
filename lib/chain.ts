@@ -1,7 +1,7 @@
 import { Network } from "web3bio-profile-kit/types";
 import { NETWORK_DATA } from "web3bio-profile-kit/utils";
 
-const RECEIPT_NETWORKS = {
+const EVM_NETWORKS = {
   eth: Network.ethereum,
   base: Network.base,
   bsc: Network.bsc,
@@ -18,7 +18,6 @@ const RECEIPT_NETWORKS = {
   scroll: Network.scroll,
   linea: Network.linea,
   zksync: Network.zksync_era,
-  abstract: Network.abstract,
   zora: Network.zora,
   nova: Network.arbitrum_nova,
   xlayer: Network.xLayer,
@@ -28,7 +27,7 @@ const RECEIPT_NETWORKS = {
   conflux: Network.conflux,
 } as const;
 
-export type SupportedChain = keyof typeof RECEIPT_NETWORKS;
+export type SupportedChain = keyof typeof EVM_NETWORKS;
 
 const COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   eth: "ethereum",
@@ -47,7 +46,6 @@ const COINGECKO_PLATFORM: Record<SupportedChain, string> = {
   scroll: "scroll",
   linea: "linea",
   zksync: "zksync",
-  abstract: "abstract",
   zora: "zora",
   nova: "arbitrum-nova",
   xlayer: "x-layer",
@@ -69,11 +67,9 @@ const NATIVE_LOGO: Partial<Record<SupportedChain, string>> = {
 
 const NATIVE_NETWORKS = {
   bitcoin: Network.bitcoin,
-  litecoin: Network.litecoin,
-  dogecoin: Network.dogecoin,
+  doge: Network.doge,
   tron: Network.tron,
   aptos: Network.aptos,
-  xrpl: Network.xrpl,
   sui: Network.sui,
   starknet: Network.starknet,
   ton: Network.ton,
@@ -111,10 +107,8 @@ export function isValidTransactionId(chain: string, value: string) {
     case "ton": return /^(?:[\da-f]{64}|[A-Za-z0-9_-]{43})$/i.test(value);
     case "starknet": return /^0x[\da-f]{1,64}$/i.test(value);
     case "bitcoin":
-    case "litecoin":
-    case "dogecoin":
-    case "tron":
-    case "xrpl": return /^(?:0x)?[\da-f]{64}$/i.test(value);
+    case "doge":
+    case "tron": return /^(?:0x)?[\da-f]{64}$/i.test(value);
     default: return isValidTxHash(value);
   }
 }
@@ -128,27 +122,32 @@ export function normalizeTransactionId(chain: string, value: string) {
     case "ton": return value.length === 64 ? value.toLowerCase() : value;
     case "starknet": return `0x${BigInt(value.toLowerCase()).toString(16)}`;
     case "bitcoin":
-    case "litecoin":
-    case "dogecoin":
-    case "tron":
-    case "xrpl": return value.toLowerCase().replace(/^0x/, "");
+    case "doge":
+    case "tron": return value.toLowerCase().replace(/^0x/, "");
     default: return value.toLowerCase();
   }
 }
 
-export const SUPPORTED_CHAINS = [...Object.keys(RECEIPT_NETWORKS), ...Object.keys(NATIVE_NETWORKS)];
-export const SUPPORTED_CHAIN_SET = new Set<string>(SUPPORTED_CHAINS);
+const RECEIPT_NETWORKS = new Map<string, Network>(
+  Object.entries({ ...EVM_NETWORKS, ...NATIVE_NETWORKS }),
+);
+export const SUPPORTED_CHAINS = [...RECEIPT_NETWORKS.keys()];
 export const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
+
+const CHAIN_ALIASES = new Map([
+  ["sol", "solana"],
+  ["btc", "bitcoin"],
+  ["dogecoin", "doge"],
+]);
 
 export function normalizeChain(chain?: string | null) {
   const key = chain?.toLowerCase().trim() ?? "eth";
-  return key === "sol" ? "solana" : key === "btc" ? "bitcoin" : key;
+  return CHAIN_ALIASES.get(key) ?? key;
 }
 
 export function getReceiptNetwork(chain: string) {
-  if (isNativeChain(chain)) return NETWORK_DATA[NATIVE_NETWORKS[chain]];
-  if (!Object.hasOwn(RECEIPT_NETWORKS, chain)) return undefined;
-  return NETWORK_DATA[RECEIPT_NETWORKS[chain as SupportedChain]];
+  const network = RECEIPT_NETWORKS.get(chain);
+  return network && NETWORK_DATA[network];
 }
 
 export function getChainDisplayName(chain?: string | null) {
